@@ -7,6 +7,7 @@ import '../../providers/category_provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/family_provider.dart';
 import '../../services/database/database_service.dart';
+import '../member/member_list_screen.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -55,6 +56,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // 外观设置
               _buildSectionHeader('外观设置'),
               _buildThemeTile(settingsProvider),
+
+              const Divider(),
+
+              // 家庭管理
+              _buildSectionHeader('家庭管理'),
+              _buildMemberManagementTile(),
 
               const Divider(),
 
@@ -167,6 +174,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  /// 家庭成员管理
+  Widget _buildMemberManagementTile() {
+    return Consumer<FamilyProvider>(
+      builder: (context, familyProvider, child) {
+        final memberCount = familyProvider.currentGroupMembers.length;
+        return ListTile(
+          leading: const Icon(Icons.people),
+          title: const Text('家庭成员管理'),
+          subtitle: Text('$memberCount 位成员'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MemberListScreen(),
+              ),
+            );
+          },
         );
       },
     );

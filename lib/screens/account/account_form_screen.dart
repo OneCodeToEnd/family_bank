@@ -4,6 +4,7 @@ import '../../providers/account_provider.dart';
 import '../../providers/family_provider.dart';
 import '../../models/account.dart';
 import '../../constants/db_constants.dart';
+import '../member/member_form_screen.dart';
 
 /// 添加/编辑账户页面
 class AccountFormScreen extends StatefulWidget {
@@ -63,9 +64,22 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                   const SizedBox(height: 16),
                   const Text('请先创建家庭成员'),
                   const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('返回'),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      // 快速添加成员
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MemberFormScreen(),
+                        ),
+                      );
+                      if (result == true && mounted) {
+                        // 重新加载成员列表
+                        await familyProvider.loadFamilyMembers();
+                      }
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('添加成员'),
                   ),
                 ],
               ),
@@ -89,9 +103,31 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '账户所属',
-                          style: Theme.of(context).textTheme.titleMedium,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '账户所属',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            TextButton.icon(
+                              onPressed: () async {
+                                // 快速添加成员
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const MemberFormScreen(),
+                                  ),
+                                );
+                                if (result == true && mounted) {
+                                  // 重新加载成员列表
+                                  await familyProvider.loadFamilyMembers();
+                                }
+                              },
+                              icon: const Icon(Icons.person_add, size: 18),
+                              label: const Text('添加成员'),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<int>(
@@ -268,6 +304,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
     if (isEditing) {
       // 编辑账户
       final updatedAccount = widget.account!.copyWith(
+        familyMemberId: _selectedMemberId!,
         name: _nameController.text.trim(),
         type: _selectedType,
         notes: _notesController.text.trim().isEmpty
