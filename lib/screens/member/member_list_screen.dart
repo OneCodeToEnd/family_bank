@@ -16,7 +16,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMembers();
+    // 使用 addPostFrameCallback 避免在 build 期间调用 setState
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMembers();
+    });
   }
 
   Future<void> _loadMembers() async {

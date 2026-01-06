@@ -13,6 +13,7 @@ class Transaction {
   final String importSource; // manual/alipay/wechat/photo
   final bool isConfirmed;
   final String? notes;
+  final String? counterparty; // 交易对方
   final String hash;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -28,6 +29,7 @@ class Transaction {
     this.importSource = 'manual',
     this.isConfirmed = false,
     this.notes,
+    this.counterparty,
     String? hash,
     required this.createdAt,
     required this.updatedAt,
@@ -51,6 +53,7 @@ class Transaction {
       importSource: map['import_source'] as String? ?? 'manual',
       isConfirmed: (map['is_confirmed'] as int) == 1,
       notes: map['notes'] as String?,
+      counterparty: map['counterparty'] as String?,
       hash: map['hash'] as String,
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
@@ -69,6 +72,7 @@ class Transaction {
       'import_source': importSource,
       'is_confirmed': isConfirmed ? 1 : 0,
       'notes': notes,
+      'counterparty': counterparty,
       'hash': hash,
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt.millisecondsSinceEpoch,
@@ -86,6 +90,7 @@ class Transaction {
     String? importSource,
     bool? isConfirmed,
     String? notes,
+    String? counterparty,
     String? hash,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -101,6 +106,7 @@ class Transaction {
       importSource: importSource ?? this.importSource,
       isConfirmed: isConfirmed ?? this.isConfirmed,
       notes: notes ?? this.notes,
+      counterparty: counterparty ?? this.counterparty,
       hash: hash ?? this.hash,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

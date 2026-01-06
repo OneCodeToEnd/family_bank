@@ -8,6 +8,8 @@ import '../../providers/transaction_provider.dart';
 import '../../providers/family_provider.dart';
 import '../../services/database/database_service.dart';
 import '../member/member_list_screen.dart';
+import 'ai_settings_screen.dart';
+import '../category/category_rule_list_screen.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -67,6 +69,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               // 功能设置
               _buildSectionHeader('功能设置'),
+              _buildAISettingsTile(),
+              _buildCategoryRulesTile(),
               _buildEncryptionTile(settingsProvider),
               _buildAutoBackupTile(settingsProvider),
               _buildDefaultAccountTile(),
@@ -197,6 +201,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  /// AI 分类设置
+  Widget _buildAISettingsTile() {
+    return ListTile(
+      leading: const Icon(Icons.smart_toy),
+      title: const Text('AI 分类设置'),
+      subtitle: const Text('配置智能分类功能'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AISettingsScreen(),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 分类规则管理
+  Widget _buildCategoryRulesTile() {
+    return ListTile(
+      leading: const Icon(Icons.rule),
+      title: const Text('分类规则管理'),
+      subtitle: const Text('查看和管理分类规则'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CategoryRuleListScreen(),
+          ),
         );
       },
     );

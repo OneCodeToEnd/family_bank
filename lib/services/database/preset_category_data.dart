@@ -243,35 +243,11 @@ class PresetCategoryData {
 
     await db.insert(DbConstants.tableCategories, {
       'parent_id': foodId,
-      'name': '早餐',
+      'name': '一日三餐',
       'type': 'expense',
-      'icon': 'breakfast_dining',
+      'icon': 'restaurant_menu',
       'is_system': 1,
       'sort_order': 1,
-      'tags': '[]',
-      'created_at': timestamp,
-      'updated_at': timestamp,
-    });
-
-    await db.insert(DbConstants.tableCategories, {
-      'parent_id': foodId,
-      'name': '午餐',
-      'type': 'expense',
-      'icon': 'lunch_dining',
-      'is_system': 1,
-      'sort_order': 2,
-      'tags': '[]',
-      'created_at': timestamp,
-      'updated_at': timestamp,
-    });
-
-    await db.insert(DbConstants.tableCategories, {
-      'parent_id': foodId,
-      'name': '晚餐',
-      'type': 'expense',
-      'icon': 'dinner_dining',
-      'is_system': 1,
-      'sort_order': 3,
       'tags': '[]',
       'created_at': timestamp,
       'updated_at': timestamp,

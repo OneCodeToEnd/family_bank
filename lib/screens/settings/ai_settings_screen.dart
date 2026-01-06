@@ -1,0 +1,669 @@
+import 'package:flutter/material.dart';
+import '../../models/ai_classification_config.dart';
+import '../../models/ai_model.dart';
+import '../../models/ai_provider.dart';
+import '../../services/ai/ai_config_service.dart';
+import '../../services/ai/ai_classifier_factory.dart';
+import 'ai_prompt_edit_screen.dart';
+
+/// AI分类设置界面
+class AISettingsScreen extends StatefulWidget {
+  const AISettingsScreen({Key? key}) : super(key: key);
+
+  @override
+  State<AISettingsScreen> createState() => _AISettingsScreenState();
+}
+
+class _AISettingsScreenState extends State<AISettingsScreen> {
+  final AIConfigService _configService = AIConfigService();
+  AIClassificationConfig? _config;
+  List<AIModel>? _availableModels;
+  bool _loading = true;
+  bool _loadingModels = false;
+  bool _testing = false;
+  String? _testResult;
+  final TextEditingController _apiKeyController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // 使用 addPostFrameCallback 避免在 build 期间调用 setState
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadConfig();
+    });
+  }
+
+  @override
+  void dispose() {
+    _apiKeyController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadConfig() async {
+    try {
+      final config = await _configService.loadConfig();
+      setState(() {
+        _config = config;
+        _apiKeyController.text = config.apiKey;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+      });
+      if (mounted) {
+        _showError('加载配置失败: $e');
+      }
+    }
+  }
+
+  Future<void> _saveConfig() async {
+    if (_config == null) return;
+
+    try {
+      // 保存前更新 apiKey
+      final updatedConfig = _config!.copyWith(
+        apiKey: _apiKeyController.text,
+      );
+
+      await _configService.saveConfig(updatedConfig);
+
+      setState(() {
+        _config = updatedConfig;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('配置已保存')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('保存配置失败: $e');
+      }
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('AI 分类设置')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_config == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('AI 分类设置')),
+        body: const Center(child: Text('加载配置失败')),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('AI 分类设置'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _saveConfig,
+            tooltip: '保存',
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildInfoCard(),
+          const SizedBox(height: 16),
+          _buildEnableSwitch(),
+          if (_config!.enabled) ...[
+            const Divider(height: 32),
+            _buildProviderSelection(),
+            const SizedBox(height: 16),
+            _buildApiKeyInput(),
+            const SizedBox(height: 16),
+            _buildModelSelection(),
+            const SizedBox(height: 16),
+            _buildTestButton(),
+            if (_testResult != null) _buildTestResult(),
+            const Divider(height: 32),
+            _buildConfidenceSlider(),
+            const SizedBox(height: 16),
+            _buildAutoLearnSwitch(),
+            const Divider(height: 32),
+            _buildPromptConfigButton(),
+            if (_availableModels != null &&
+                _config!.modelId.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildModelPriceCard(),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard() {
+    return Card(
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline, size: 20, color: Colors.blue.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  'AI 自动分类说明',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text('启用后，系统将使用AI自动为导入的交易分类'),
+            const Text('支持 DeepSeek 和通义千问两大AI服务商'),
+            const Text('需要您提供相应的 API Key'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnableSwitch() {
+    return SwitchListTile(
+      title: const Text('启用 AI 分类'),
+      subtitle: const Text('使用人工智能自动分类交易'),
+      value: _config!.enabled,
+      onChanged: (value) {
+        setState(() {
+          _config = _config!.copyWith(enabled: value);
+        });
+      },
+    );
+  }
+
+  Widget _buildProviderSelection() {
+    return ListTile(
+      title: const Text('AI 提供商'),
+      subtitle: Text(_config!.provider.displayName),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: _selectProvider,
+    );
+  }
+
+  Widget _buildApiKeyInput() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'API Key',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.help_outline),
+              onPressed: _showApiKeyHelp,
+              iconSize: 20,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _apiKeyController,
+          decoration: InputDecoration(
+            hintText: '请输入 ${_config!.provider.displayName} 的 API Key',
+            border: const OutlineInputBorder(),
+            suffixIcon: _apiKeyController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      setState(() {
+                        _apiKeyController.clear();
+                      });
+                    },
+                  )
+                : null,
+          ),
+          obscureText: true,
+          onChanged: (value) {
+            setState(() {
+              // API Key 改变时，清空模型列表
+              _availableModels = null;
+              _testResult = null;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModelSelection() {
+    if (_apiKeyController.text.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text('请先输入 API Key'),
+        ),
+      );
+    }
+
+    return ListTile(
+      title: const Text('选择模型'),
+      subtitle: _config!.modelId.isEmpty
+          ? const Text('请选择模型')
+          : Text(_config!.modelId),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_loadingModels)
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadModels,
+              tooltip: '刷新模型列表',
+            ),
+          const Icon(Icons.chevron_right),
+        ],
+      ),
+      onTap: _loadingModels ? null : _selectModel,
+    );
+  }
+
+  Widget _buildTestButton() {
+    final canTest =
+        _apiKeyController.text.isNotEmpty && _config!.modelId.isNotEmpty;
+
+    return ElevatedButton.icon(
+      onPressed: (_testing || !canTest) ? null : _testConnection,
+      icon: _testing
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.wifi_tethering),
+      label: const Text('测试连接'),
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 48),
+      ),
+    );
+  }
+
+  Widget _buildTestResult() {
+    final isSuccess = _testResult!.contains('成功');
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSuccess ? Colors.green.shade50 : Colors.red.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSuccess ? Colors.green : Colors.red,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSuccess ? Icons.check_circle : Icons.error,
+              color: isSuccess ? Colors.green : Colors.red,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _testResult!,
+                style: TextStyle(
+                  color: isSuccess ? Colors.green.shade900 : Colors.red.shade900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfidenceSlider() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('置信度阈值'),
+          subtitle: Text(
+            '低于此阈值的分类需要用户确认 (${(_config!.confidenceThreshold * 100).toInt()}%)',
+          ),
+          trailing: Text(
+            '${(_config!.confidenceThreshold * 100).toInt()}%',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Slider(
+          value: _config!.confidenceThreshold,
+          min: 0.5,
+          max: 0.95,
+          divisions: 9,
+          label: '${(_config!.confidenceThreshold * 100).toInt()}%',
+          onChanged: (value) {
+            setState(() {
+              _config = _config!.copyWith(confidenceThreshold: value);
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAutoLearnSwitch() {
+    return SwitchListTile(
+      title: const Text('自动学习规则'),
+      subtitle: const Text('从 AI 分类结果中自动学习并创建规则'),
+      value: _config!.autoLearn,
+      onChanged: (value) {
+        setState(() {
+          _config = _config!.copyWith(autoLearn: value);
+        });
+      },
+    );
+  }
+
+  Widget _buildPromptConfigButton() {
+    return ListTile(
+      title: const Text('提示词配置'),
+      subtitle: const Text('自定义 AI 分类的提示词'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: _editPrompts,
+    );
+  }
+
+  Widget _buildModelPriceCard() {
+    final currentModel = _availableModels?.firstWhere(
+      (m) => m.id == _config!.modelId,
+      orElse: () => AIModel(id: '', name: ''),
+    );
+
+    if (currentModel == null || currentModel.id.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.info_outline, size: 20, color: Colors.blue.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  '当前模型费用',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text('模型: ${currentModel.name}'),
+            if (currentModel.inputPrice != null)
+              Text('• 输入: ¥${currentModel.inputPrice}/千tokens'),
+            if (currentModel.outputPrice != null)
+              Text('• 输出: ¥${currentModel.outputPrice}/千tokens'),
+            const SizedBox(height: 4),
+            const Text(
+              '注：实际费用取决于交易描述长度和分类数量',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadModels() async {
+    if (_apiKeyController.text.isEmpty) {
+      _showError('请先输入 API Key');
+      return;
+    }
+
+    setState(() {
+      _loadingModels = true;
+      _testResult = null;
+    });
+
+    try {
+      final service = AIClassifierFactory.create(
+        _config!.provider,
+        _apiKeyController.text,
+        'temp', // 临时模型 ID
+        _config!,
+      );
+
+      final models = await service.getAvailableModels();
+
+      setState(() {
+        _availableModels = models;
+        _loadingModels = false;
+      });
+
+      if (models.isEmpty) {
+        _showError('未找到可用模型');
+      }
+    } catch (e) {
+      setState(() {
+        _loadingModels = false;
+      });
+      _showError('获取模型列表失败: $e');
+    }
+  }
+
+  Future<void> _selectModel() async {
+    if (_availableModels == null || _availableModels!.isEmpty) {
+      await _loadModels();
+      if (_availableModels == null || _availableModels!.isEmpty) return;
+    }
+
+    if (!mounted) return;
+
+    final selected = await showDialog<AIModel>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('选择模型'),
+        children: _availableModels!.map((model) {
+          return SimpleDialogOption(
+            child: ListTile(
+              title: Text(model.name),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (model.description != null) Text(model.description!),
+                  if (model.inputPrice != null)
+                    Text(
+                      '输入: ¥${model.inputPrice}/千tokens',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                ],
+              ),
+              selected: _config!.modelId == model.id,
+            ),
+            onPressed: () => Navigator.pop(context, model),
+          );
+        }).toList(),
+      ),
+    );
+
+    if (selected != null) {
+      setState(() {
+        _config = _config!.copyWith(modelId: selected.id);
+        _testResult = null;
+      });
+    }
+  }
+
+  Future<void> _testConnection() async {
+    if (_apiKeyController.text.isEmpty) {
+      setState(() {
+        _testResult = '请先输入 API Key';
+      });
+      return;
+    }
+
+    if (_config!.modelId.isEmpty) {
+      setState(() {
+        _testResult = '请先选择模型';
+      });
+      return;
+    }
+
+    setState(() {
+      _testing = true;
+      _testResult = null;
+    });
+
+    try {
+      final service = AIClassifierFactory.create(
+        _config!.provider,
+        _apiKeyController.text,
+        _config!.modelId,
+        _config!,
+      );
+
+      final success = await service.testConnection();
+
+      setState(() {
+        _testResult = success ? '✓ 连接成功' : '✗ 连接失败，请检查 API Key';
+      });
+    } catch (e) {
+      setState(() {
+        _testResult = '✗ 连接失败: $e';
+      });
+    } finally {
+      setState(() {
+        _testing = false;
+      });
+    }
+  }
+
+  void _selectProvider() {
+    showDialog(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('选择 AI 提供商'),
+        children: AIProvider.values.map((provider) {
+          return SimpleDialogOption(
+            child: ListTile(
+              title: Text(provider.displayName),
+              selected: _config!.provider == provider,
+            ),
+            onPressed: () {
+              setState(() {
+                _config = _config!.copyWith(
+                  provider: provider,
+                  modelId: '', // 切换提供商时清空模型选择
+                );
+                _availableModels = null; // 清空模型列表
+                _testResult = null;
+              });
+              Navigator.pop(context);
+            },
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showApiKeyHelp() {
+    final provider = _config!.provider;
+    String helpText = '';
+    String? url;
+
+    switch (provider) {
+      case AIProvider.deepseek:
+        helpText = '1. 访问 https://platform.deepseek.com\n'
+            '2. 注册并登录账号\n'
+            '3. 进入 API Keys 页面\n'
+            '4. 创建新的 API Key 并复制';
+        url = 'https://platform.deepseek.com';
+        break;
+      case AIProvider.qwen:
+        helpText = '1. 访问阿里云控制台\n'
+            '2. 开通 DashScope 服务\n'
+            '3. 获取 API Key\n'
+            '4. 复制到此处';
+        url = 'https://dashscope.console.aliyun.com/';
+        break;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('如何获取 API Key'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(helpText),
+            if (url != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                '官网地址：',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SelectableText(url),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editPrompts() async {
+    final result = await Navigator.push<AIClassificationConfig>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AIPromptEditScreen(config: _config!),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _config = result;
+      });
+    }
+  }
+}

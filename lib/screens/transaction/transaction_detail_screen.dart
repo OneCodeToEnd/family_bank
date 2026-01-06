@@ -98,6 +98,16 @@ class TransactionDetailScreen extends StatelessWidget {
                       label: '描述',
                       value: transaction.description ?? '无描述',
                     ),
+                    // 交易对方（如果有）
+                    if (transaction.counterparty != null &&
+                        transaction.counterparty!.isNotEmpty) ...[
+                      const Divider(height: 1),
+                      _buildInfoTile(
+                        icon: Icons.person_outline,
+                        label: '交易对方',
+                        value: transaction.counterparty!,
+                      ),
+                    ],
                     const Divider(height: 1),
                     _buildInfoTile(
                       icon: Icons.category,

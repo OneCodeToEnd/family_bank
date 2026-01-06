@@ -167,6 +167,34 @@ class DatabaseService {
       )
     ''');
 
+    // 创建HTTP日志表 (V4新增)
+    await db.execute('''
+      CREATE TABLE ${DbConstants.tableHttpLogs} (
+        ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.columnLogRequestId} TEXT NOT NULL UNIQUE,
+        ${DbConstants.columnLogMethod} TEXT NOT NULL,
+        ${DbConstants.columnLogUrl} TEXT NOT NULL,
+        ${DbConstants.columnLogRequestHeaders} TEXT,
+        ${DbConstants.columnLogRequestBody} TEXT,
+        ${DbConstants.columnLogRequestSize} INTEGER,
+        ${DbConstants.columnLogStatusCode} INTEGER,
+        ${DbConstants.columnLogStatusMessage} TEXT,
+        ${DbConstants.columnLogResponseHeaders} TEXT,
+        ${DbConstants.columnLogResponseBody} TEXT,
+        ${DbConstants.columnLogResponseSize} INTEGER,
+        ${DbConstants.columnLogStartTime} INTEGER NOT NULL,
+        ${DbConstants.columnLogEndTime} INTEGER,
+        ${DbConstants.columnLogDurationMs} INTEGER,
+        ${DbConstants.columnLogErrorType} TEXT,
+        ${DbConstants.columnLogErrorMessage} TEXT,
+        ${DbConstants.columnLogStackTrace} TEXT,
+        ${DbConstants.columnLogServiceName} TEXT,
+        ${DbConstants.columnLogApiProvider} TEXT,
+        ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
+        ${DbConstants.columnUpdatedAt} INTEGER NOT NULL
+      )
+    ''');
+
     // 创建索引
     await _createIndexes(db);
 
@@ -223,14 +251,152 @@ class DatabaseService {
     await db.execute(
       'CREATE INDEX idx_budget_target ON ${DbConstants.tableBudgets}(${DbConstants.columnBudgetTargetType}, ${DbConstants.columnBudgetTargetId})',
     );
+
+    // HTTP日志表索引
+    await db.execute(
+      'CREATE INDEX idx_http_log_request_id ON ${DbConstants.tableHttpLogs}(${DbConstants.columnLogRequestId})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_http_log_created_at ON ${DbConstants.tableHttpLogs}(${DbConstants.columnCreatedAt} DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_http_log_service ON ${DbConstants.tableHttpLogs}(${DbConstants.columnLogServiceName})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_http_log_status ON ${DbConstants.tableHttpLogs}(${DbConstants.columnLogStatusCode})',
+    );
   }
 
   /// 数据库升级
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // 未来版本升级逻辑
-    // if (oldVersion < 2) {
-    //   // 执行V2版本的升级脚本
-    // }
+    // 确保 app_settings 表存在（对所有旧版本）
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS ${DbConstants.tableAppSettings} (
+        ${DbConstants.columnSettingKey} TEXT PRIMARY KEY,
+        ${DbConstants.columnSettingValue} TEXT NOT NULL,
+        ${DbConstants.columnUpdatedAt} INTEGER NOT NULL
+      )
+    ''');
+
+    // V2升级：为transactions表添加交易对方字段
+    if (oldVersion < 2) {
+      await db.execute('''
+        ALTER TABLE ${DbConstants.tableTransactions}
+        ADD COLUMN ${DbConstants.columnTransactionCounterparty} TEXT DEFAULT NULL
+      ''');
+
+      // 创建索引以优化查询性能
+      await db.execute('''
+        CREATE INDEX idx_transaction_counterparty
+        ON ${DbConstants.tableTransactions}(${DbConstants.columnTransactionCounterparty})
+      ''');
+    }
+
+    // V3升级：为category_rules表添加增强分类匹配字段
+    if (oldVersion < 3) {
+      // 添加新字段
+      await db.execute('''
+        ALTER TABLE ${DbConstants.tableCategoryRules}
+        ADD COLUMN ${DbConstants.columnRuleMatchType} TEXT DEFAULT 'exact'
+      ''');
+
+      await db.execute('''
+        ALTER TABLE ${DbConstants.tableCategoryRules}
+        ADD COLUMN ${DbConstants.columnRuleMatchPosition} TEXT DEFAULT NULL
+      ''');
+
+      await db.execute('''
+        ALTER TABLE ${DbConstants.tableCategoryRules}
+        ADD COLUMN ${DbConstants.columnRuleMinConfidence} REAL DEFAULT 0.8
+      ''');
+
+      await db.execute('''
+        ALTER TABLE ${DbConstants.tableCategoryRules}
+        ADD COLUMN ${DbConstants.columnRuleCounterparty} TEXT DEFAULT NULL
+      ''');
+
+      await db.execute('''
+        ALTER TABLE ${DbConstants.tableCategoryRules}
+        ADD COLUMN ${DbConstants.columnRuleAliases} TEXT DEFAULT '[]'
+      ''');
+
+      await db.execute('''
+        ALTER TABLE ${DbConstants.tableCategoryRules}
+        ADD COLUMN ${DbConstants.columnRuleAutoLearn} INTEGER DEFAULT 0
+      ''');
+
+      await db.execute('''
+        ALTER TABLE ${DbConstants.tableCategoryRules}
+        ADD COLUMN ${DbConstants.columnRuleCaseSensitive} INTEGER DEFAULT 0
+      ''');
+
+      // 创建新索引以优化查询性能
+      await db.execute('''
+        CREATE INDEX idx_rule_match_type
+        ON ${DbConstants.tableCategoryRules}(${DbConstants.columnRuleMatchType})
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_rule_counterparty
+        ON ${DbConstants.tableCategoryRules}(${DbConstants.columnRuleCounterparty})
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_rule_priority
+        ON ${DbConstants.tableCategoryRules}(${DbConstants.columnRulePriority} DESC)
+      ''');
+    }
+
+    // V4升级：添加HTTP日志表
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE ${DbConstants.tableHttpLogs} (
+          ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DbConstants.columnLogRequestId} TEXT NOT NULL UNIQUE,
+          ${DbConstants.columnLogMethod} TEXT NOT NULL,
+          ${DbConstants.columnLogUrl} TEXT NOT NULL,
+          ${DbConstants.columnLogRequestHeaders} TEXT,
+          ${DbConstants.columnLogRequestBody} TEXT,
+          ${DbConstants.columnLogRequestSize} INTEGER,
+          ${DbConstants.columnLogStatusCode} INTEGER,
+          ${DbConstants.columnLogStatusMessage} TEXT,
+          ${DbConstants.columnLogResponseHeaders} TEXT,
+          ${DbConstants.columnLogResponseBody} TEXT,
+          ${DbConstants.columnLogResponseSize} INTEGER,
+          ${DbConstants.columnLogStartTime} INTEGER NOT NULL,
+          ${DbConstants.columnLogEndTime} INTEGER,
+          ${DbConstants.columnLogDurationMs} INTEGER,
+          ${DbConstants.columnLogErrorType} TEXT,
+          ${DbConstants.columnLogErrorMessage} TEXT,
+          ${DbConstants.columnLogStackTrace} TEXT,
+          ${DbConstants.columnLogServiceName} TEXT,
+          ${DbConstants.columnLogApiProvider} TEXT,
+          ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
+          ${DbConstants.columnUpdatedAt} INTEGER NOT NULL
+        )
+      ''');
+
+      // 创建索引
+      await db.execute('''
+        CREATE INDEX idx_http_log_request_id
+        ON ${DbConstants.tableHttpLogs}(${DbConstants.columnLogRequestId})
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_http_log_created_at
+        ON ${DbConstants.tableHttpLogs}(${DbConstants.columnCreatedAt} DESC)
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_http_log_service
+        ON ${DbConstants.tableHttpLogs}(${DbConstants.columnLogServiceName})
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_http_log_status
+        ON ${DbConstants.tableHttpLogs}(${DbConstants.columnLogStatusCode})
+      ''');
+    }
   }
 
   /// 关闭数据库

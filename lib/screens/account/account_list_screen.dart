@@ -20,7 +20,10 @@ class _AccountListScreenState extends State<AccountListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAccounts();
+    // 使用 addPostFrameCallback 避免在 build 期间调用 setState
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAccounts();
+    });
   }
 
   Future<void> _loadAccounts() async {

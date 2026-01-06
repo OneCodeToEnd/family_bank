@@ -68,16 +68,17 @@ class BillImportService {
           // 确定类型
           final type = incomeExpense == '收入' ? 'income' : 'expense';
 
-          // 组合描述
+          // 组合描述（不再包含交易对方，交易对方单独存储）
           final fullDescription = description.isNotEmpty
-                    ? '$typeCategory###$counterparty###$description'
-                    : '$typeCategory###$counterparty';
+                    ? '$typeCategory - $description'
+                    : typeCategory;
 
           transactions.add(model.Transaction(
             accountId: defaultAccountId,
             type: type,
             amount: amount,
             description: fullDescription,
+            counterparty: counterparty.isNotEmpty ? counterparty : null,
             transactionTime: transactionTime,
             importSource: 'alipay',
             isConfirmed: false,
@@ -157,16 +158,17 @@ class BillImportService {
           // 确定类型
           final type = incomeExpense == '收入' ? 'income' : 'expense';
 
-          // 组合描述
+          // 组合描述（不再包含交易对方，交易对方单独存储）
           final fullDescription = product.isNotEmpty
-              ? '$transactionType###$counterparty###$product'
-              : '$transactionType###$counterparty';
+              ? '$transactionType - $product'
+              : transactionType;
 
           transactions.add(model.Transaction(
             accountId: defaultAccountId,
             type: type,
             amount: amount,
             description: fullDescription,
+            counterparty: counterparty.isNotEmpty ? counterparty : null,
             transactionTime: transactionTime,
             importSource: 'wechat',
             isConfirmed: false,

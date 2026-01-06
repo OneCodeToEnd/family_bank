@@ -6,6 +6,7 @@ import '../../providers/account_provider.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/family_provider.dart';
 import '../../models/transaction.dart' as model;
+import '../../models/category.dart';
 import 'transaction_form_screen.dart';
 import 'transaction_detail_screen.dart';
 
@@ -18,65 +19,61 @@ class TransactionListScreen extends StatefulWidget {
 }
 
 class _TransactionListScreenState extends State<TransactionListScreen> {
-  final TextEditingController _searchController = TextEditingController();
-
   // 筛选条件
-  String? _filterType; // income, expense
-  int? _filterAccountId;
-  int? _filterCategoryId;
-  int? _filterMemberId;
-  DateTimeRange? _filterDateRange;
-
-  bool _showFilter = false;
+  DateTime _selectedMonth = DateTime.now();
+  int? _selectedAccountId; // null 表示"全部账户"
+  List<int> _selectedCategoryIds = []; // 选中的分类ID列表，空表示全部
 
   @override
   void initState() {
     super.initState();
-    // 延迟到 build 之后再加载数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
   Future<void> _loadData() async {
+    if (!mounted) return;
     await context.read<TransactionProvider>().loadTransactions();
+    if (!mounted) return;
+    await context.read<AccountProvider>().loadAccounts();
+    if (!mounted) return;
+    await context.read<CategoryProvider>().loadCategories();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('账单管理'),
-        actions: [
-          IconButton(
-            icon: Icon(_showFilter ? Icons.filter_list : Icons.filter_list_off),
-            tooltip: '筛选',
-            onPressed: () {
-              setState(() {
-                _showFilter = !_showFilter;
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.search),
-            tooltip: '搜索',
-            onPressed: _showSearchDialog,
-          ),
-        ],
+        title: const Text('记账本'),
+        backgroundColor: const Color(0xFF4CAF50), // 绿色主题
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: Column(
         children: [
-          // 筛选栏
-          if (_showFilter) _buildFilterBar(),
+          // 绿色背景的顶部区域
+          Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF4CAF50),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
+            ),
+            child: Column(
+              children: [
+                // 账户筛选和分类筛选
+                _buildFilterTabs(),
 
-          // 统计汇总
-          _buildSummaryCard(),
+                // 月份选择和统计
+                _buildMonthSelectorAndStats(),
+
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
 
           // 账单列表
           Expanded(
@@ -84,72 +81,117 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _navigateToAddTransaction(),
-        icon: const Icon(Icons.add),
-        label: const Text('记一笔'),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _navigateToAddTransaction,
+        backgroundColor: const Color(0xFF4CAF50),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 
-  /// 筛选栏
-  Widget _buildFilterBar() {
-    return Card(
-      margin: const EdgeInsets.all(8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.filter_list, size: 20),
-                const SizedBox(width: 8),
-                const Text('筛选条件', style: TextStyle(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                TextButton(
-                  onPressed: _clearFilters,
-                  child: const Text('清除'),
-                ),
-              ],
+  /// 顶部筛选标签（分类选择、账户选择）
+  Widget _buildFilterTabs() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(
+        children: [
+          // 分类选择按钮
+          Consumer<CategoryProvider>(
+            builder: (context, categoryProvider, child) {
+              final selectedCount = _selectedCategoryIds.length;
+              return _buildFilterChip(
+                label: selectedCount > 0 ? '$selectedCount个分类' : '全部分类',
+                icon: Icons.category,
+                selected: selectedCount > 0,
+                onTap: () => _showCategorySelector(categoryProvider),
+              );
+            },
+          ),
+          const SizedBox(width: 12),
+
+          // 账户选择下拉
+          Expanded(
+            child: Consumer<AccountProvider>(
+              builder: (context, accountProvider, child) {
+                final accounts = accountProvider.visibleAccounts;
+
+                return Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int?>(
+                      value: _selectedAccountId,
+                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
+                      dropdownColor: const Color(0xFF4CAF50),
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('全部账户', style: TextStyle(color: Colors.white)),
+                        ),
+                        ...accounts.map((account) {
+                          return DropdownMenuItem(
+                            value: account.id,
+                            child: Text(
+                              account.name,
+                              style: const TextStyle(color: Colors.white),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedAccountId = value;
+                        });
+                      },
+                    ),
+                  ),
+                );
+              },
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                // 类型筛选
-                ChoiceChip(
-                  label: const Text('收入'),
-                  selected: _filterType == 'income',
-                  onSelected: (selected) {
-                    setState(() {
-                      _filterType = selected ? 'income' : null;
-                    });
-                  },
-                ),
-                ChoiceChip(
-                  label: const Text('支出'),
-                  selected: _filterType == 'expense',
-                  onSelected: (selected) {
-                    setState(() {
-                      _filterType = selected ? 'expense' : null;
-                    });
-                  },
-                ),
-                // 日期范围
-                ActionChip(
-                  label: Text(_filterDateRange == null
-                    ? '选择日期'
-                    : '${DateFormat('MM/dd').format(_filterDateRange!.start)} - ${DateFormat('MM/dd').format(_filterDateRange!.end)}'),
-                  onPressed: _selectDateRange,
-                ),
-                // 更多筛选（账户、分类、成员）
-                ActionChip(
-                  label: const Text('更多筛选'),
-                  onPressed: _showMoreFilters,
-                ),
-              ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? Colors.white.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected
+                ? Colors.white.withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: Colors.white),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
             ),
           ],
         ),
@@ -157,8 +199,8 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     );
   }
 
-  /// 统计汇总卡片
-  Widget _buildSummaryCard() {
+  /// 月份选择器和统计信息
+  Widget _buildMonthSelectorAndStats() {
     return Consumer<TransactionProvider>(
       builder: (context, provider, child) {
         final transactions = _getFilteredTransactions(provider.transactions);
@@ -174,72 +216,58 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
           }
         }
 
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      const Icon(Icons.arrow_downward, color: Colors.green, size: 20),
-                      const SizedBox(height: 4),
-                      const Text('收入', style: TextStyle(fontSize: 12)),
-                      Text(
-                        '¥${totalIncome.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            children: [
+              // 月份选择器
+              GestureDetector(
+                onTap: _showMonthPicker,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      DateFormat('yyyy年MM月').format(_selectedMonth),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                       ),
-                    ],
-                  ),
+                    ),
+                    const Icon(Icons.arrow_drop_down, color: Colors.white, size: 24),
+                  ],
                 ),
-                Container(
-                  width: 1,
-                  height: 40,
-                  color: Colors.grey[300],
-                ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      const Icon(Icons.arrow_upward, color: Colors.red, size: 20),
-                      const SizedBox(height: 4),
-                      const Text('支出', style: TextStyle(fontSize: 12)),
-                      Text(
-                        '¥${totalExpense.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
+              ),
+              const SizedBox(height: 16),
+
+              // 收支统计
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '总支出¥${totalExpense.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  width: 1,
-                  height: 40,
-                  color: Colors.grey[300],
-                ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      const Icon(Icons.account_balance_wallet, size: 20),
-                      const SizedBox(height: 4),
-                      const Text('结余', style: TextStyle(fontSize: 12)),
-                      Text(
-                        '¥${(totalIncome - totalExpense).toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: totalIncome >= totalExpense ? Colors.green : Colors.red,
+                        const SizedBox(height: 4),
+                        Text(
+                          '总收入¥${totalIncome.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         );
       },
@@ -254,22 +282,6 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (transactionProvider.errorMessage != null) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('错误: ${transactionProvider.errorMessage}'),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _loadData,
-                  child: const Text('重试'),
-                ),
-              ],
-            ),
-          );
-        }
-
         final transactions = _getFilteredTransactions(transactionProvider.transactions);
 
         if (transactions.isEmpty) {
@@ -277,14 +289,21 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey),
+                Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey[400]),
                 const SizedBox(height: 16),
-                const Text('还没有账单记录'),
+                Text(
+                  '还没有账单记录',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
-                  onPressed: () => _navigateToAddTransaction(),
+                  onPressed: _navigateToAddTransaction,
                   icon: const Icon(Icons.add),
                   label: const Text('添加账单'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4CAF50),
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ],
             ),
@@ -295,7 +314,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
         final groupedTransactions = _groupByDate(transactions);
 
         return ListView.builder(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.only(top: 8, bottom: 80),
           itemCount: groupedTransactions.length,
           itemBuilder: (context, index) {
             final dateKey = groupedTransactions.keys.elementAt(index);
@@ -306,7 +325,6 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
               dayTransactions,
               accountProvider,
               categoryProvider,
-              familyProvider,
             );
           },
         );
@@ -320,7 +338,6 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     List<model.Transaction> transactions,
     AccountProvider accountProvider,
     CategoryProvider categoryProvider,
-    FamilyProvider familyProvider,
   ) {
     double dayIncome = 0;
     double dayExpense = 0;
@@ -337,49 +354,65 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 日期头部
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
               Text(
                 dateKey,
                 style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               const Spacer(),
-              if (dayIncome > 0)
-                Text(
-                  '收 ¥${dayIncome.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.green,
-                    fontSize: 12,
-                  ),
-                ),
-              if (dayIncome > 0 && dayExpense > 0)
-                const SizedBox(width: 12),
-              if (dayExpense > 0)
-                Text(
-                  '支 ¥${dayExpense.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontSize: 12,
-                  ),
-                ),
+              Row(
+                children: [
+                  if (dayExpense > 0)
+                    Text(
+                      '出 ${dayExpense.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                  if (dayIncome > 0 && dayExpense > 0)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('·', style: TextStyle(color: Colors.grey[500])),
+                    ),
+                  if (dayIncome > 0)
+                    Text(
+                      '入 ${dayIncome.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
-        // 账单列表
-        Card(
-          margin: const EdgeInsets.only(bottom: 12),
+
+        // 账单卡片
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Column(
-            children: transactions.map((transaction) {
-              return _buildTransactionTile(
+            children: transactions.asMap().entries.map((entry) {
+              final index = entry.key;
+              final transaction = entry.value;
+              final isLast = index == transactions.length - 1;
+
+              return _buildTransactionItem(
                 transaction,
                 accountProvider,
                 categoryProvider,
-                familyProvider,
+                isLast,
               );
             }).toList(),
           ),
@@ -389,102 +422,152 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
   }
 
   /// 单个账单项
-  Widget _buildTransactionTile(
+  Widget _buildTransactionItem(
     model.Transaction transaction,
     AccountProvider accountProvider,
     CategoryProvider categoryProvider,
-    FamilyProvider familyProvider,
+    bool isLast,
   ) {
-    final account = accountProvider.getAccountById(transaction.accountId);
     final category = transaction.categoryId != null
         ? categoryProvider.getCategoryById(transaction.categoryId!)
         : null;
-    final member = account != null
-        ? familyProvider.getMemberById(account.familyMemberId)
-        : null;
-
+    final account = accountProvider.getAccountById(transaction.accountId);
     final isIncome = transaction.type == 'income';
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: isIncome ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
-        child: Icon(
-          category != null ? Icons.category : Icons.help_outline,
-          color: isIncome ? Colors.green : Colors.red,
+    // 获取分类图标和颜色
+    final categoryIcon = _getCategoryIcon(category);
+    final categoryColor = _getCategoryColor(category, isIncome);
+
+    return InkWell(
+      onTap: () => _navigateToTransactionDetail(transaction),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.zero,
+        bottom: isLast ? const Radius.circular(12) : Radius.zero,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          border: !isLast
+              ? Border(bottom: BorderSide(color: Colors.grey[100]!))
+              : null,
+        ),
+        child: Row(
+          children: [
+            // 分类图标
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: categoryColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Icon(
+                categoryIcon,
+                color: categoryColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // 信息部分
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    category?.name ?? '未分类',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${DateFormat('HH:mm').format(transaction.transactionTime)} ${transaction.description ?? account?.name ?? ''}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+
+            // 金额
+            Text(
+              '${isIncome ? '+' : '-'}${transaction.amount.toStringAsFixed(2)}',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: isIncome ? Colors.orange : Colors.black87,
+              ),
+            ),
+          ],
         ),
       ),
-      title: Text(transaction.description ?? '无描述'),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${category?.name ?? '未分类'} · ${account?.name ?? '未知账户'}',
-            style: const TextStyle(fontSize: 12),
-          ),
-          if (member != null)
-            Text(
-              member.name,
-              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-            ),
-        ],
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            '${isIncome ? '+' : '-'}¥${transaction.amount.toStringAsFixed(2)}',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: isIncome ? Colors.green : Colors.red,
-            ),
-          ),
-          Text(
-            DateFormat('HH:mm').format(transaction.transactionTime),
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-          ),
-        ],
-      ),
-      onTap: () => _navigateToTransactionDetail(transaction),
     );
+  }
+
+  /// 获取分类图标
+  IconData _getCategoryIcon(Category? category) {
+    if (category == null) return Icons.help_outline;
+
+    // 根据分类名称返回对应图标
+    final name = category.name;
+    if (name.contains('餐饮') || name.contains('吃')) return Icons.restaurant;
+    if (name.contains('购物')) return Icons.shopping_bag;
+    if (name.contains('交通')) return Icons.directions_car;
+    if (name.contains('娱乐')) return Icons.sports_esports;
+    if (name.contains('医疗')) return Icons.local_hospital;
+    if (name.contains('服务')) return Icons.room_service;
+    if (name.contains('工资') || name.contains('收入')) return Icons.account_balance_wallet;
+
+    return Icons.category;
+  }
+
+  /// 获取分类颜色
+  Color _getCategoryColor(Category? category, bool isIncome) {
+    if (isIncome) return Colors.orange;
+
+    if (category == null) return Colors.grey;
+
+    final name = category.name;
+    if (name.contains('餐饮')) return const Color(0xFF4CAF50);
+    if (name.contains('购物')) return const Color(0xFF2196F3);
+    if (name.contains('交通')) return const Color(0xFFFF9800);
+    if (name.contains('娱乐')) return const Color(0xFF00BCD4);
+    if (name.contains('医疗')) return const Color(0xFFE91E63);
+    if (name.contains('服务')) return const Color(0xFF9C27B0);
+
+    return const Color(0xFF4CAF50);
   }
 
   /// 获取筛选后的账单
   List<model.Transaction> _getFilteredTransactions(List<model.Transaction> transactions) {
     var filtered = transactions;
 
-    // 类型筛选
-    if (_filterType != null) {
-      filtered = filtered.where((t) => t.type == _filterType).toList();
-    }
+    // 月份筛选
+    filtered = filtered.where((t) {
+      return t.transactionTime.year == _selectedMonth.year &&
+             t.transactionTime.month == _selectedMonth.month;
+    }).toList();
 
     // 账户筛选
-    if (_filterAccountId != null) {
-      filtered = filtered.where((t) => t.accountId == _filterAccountId).toList();
+    if (_selectedAccountId != null) {
+      filtered = filtered.where((t) => t.accountId == _selectedAccountId).toList();
     }
 
     // 分类筛选
-    if (_filterCategoryId != null) {
-      filtered = filtered.where((t) => t.categoryId == _filterCategoryId).toList();
-    }
-
-    // 日期筛选
-    if (_filterDateRange != null) {
-      filtered = filtered.where((t) {
-        return t.transactionTime.isAfter(_filterDateRange!.start.subtract(const Duration(days: 1))) &&
-               t.transactionTime.isBefore(_filterDateRange!.end.add(const Duration(days: 1)));
-      }).toList();
-    }
-
-    // 搜索关键词
-    if (_searchController.text.isNotEmpty) {
-      final keyword = _searchController.text.toLowerCase();
+    if (_selectedCategoryIds.isNotEmpty) {
       filtered = filtered.where((t) =>
-        (t.description?.toLowerCase().contains(keyword) ?? false) ||
-        (t.notes?.toLowerCase().contains(keyword) ?? false)
+        t.categoryId != null && _selectedCategoryIds.contains(t.categoryId)
       ).toList();
     }
+
+    // 按时间倒序排序
+    filtered.sort((a, b) => b.transactionTime.compareTo(a.transactionTime));
 
     return filtered;
   }
@@ -495,176 +578,63 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
 
     for (var transaction in transactions) {
       final displayDate = _formatDateKey(transaction.transactionTime);
-
       grouped.putIfAbsent(displayDate, () => []);
       grouped[displayDate]!.add(transaction);
     }
 
-    // 按日期排序
-    final sortedKeys = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
-    final sortedMap = <String, List<model.Transaction>>{};
-    for (var key in sortedKeys) {
-      sortedMap[key] = grouped[key]!;
-    }
-
-    return sortedMap;
+    return grouped;
   }
 
-  /// 格式化日期显示
+  /// 格式化日期显示 - 参考截图格式 "12月29日 今天"
   String _formatDateKey(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final targetDate = DateTime(date.year, date.month, date.day);
 
+    final monthDay = '${date.month}月${date.day}日';
+
     if (targetDate == today) {
-      return '今天 ${DateFormat('MM月dd日').format(date)}';
+      return '$monthDay 今天';
     } else if (targetDate == yesterday) {
-      return '昨天 ${DateFormat('MM月dd日').format(date)}';
+      return '$monthDay 昨天';
     } else {
-      return DateFormat('MM月dd日 EEEE').format(date);
+      // 获取星期
+      final weekdays = ['', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+      final weekday = weekdays[date.weekday];
+      return '$monthDay $weekday';
     }
   }
 
-  /// 清除筛选
-  void _clearFilters() {
-    setState(() {
-      _filterType = null;
-      _filterAccountId = null;
-      _filterCategoryId = null;
-      _filterMemberId = null;
-      _filterDateRange = null;
-      _searchController.clear();
-    });
-  }
-
-  /// 选择日期范围
-  Future<void> _selectDateRange() async {
-    final picked = await showDateRangePicker(
+  /// 显示月份选择器
+  Future<void> _showMonthPicker() async {
+    final picked = await showDialog<DateTime>(
       context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      initialDateRange: _filterDateRange,
+      builder: (context) => _MonthPickerDialog(
+        selectedMonth: _selectedMonth,
+      ),
     );
 
     if (picked != null) {
       setState(() {
-        _filterDateRange = picked;
+        _selectedMonth = picked;
       });
     }
   }
 
-  /// 显示更多筛选
-  void _showMoreFilters() {
+  /// 显示分类选择器
+  void _showCategorySelector(CategoryProvider categoryProvider) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => _buildMoreFiltersSheet(),
-    );
-  }
-
-  /// 更多筛选弹窗
-  Widget _buildMoreFiltersSheet() {
-    return Consumer3<AccountProvider, CategoryProvider, FamilyProvider>(
-      builder: (context, accountProvider, categoryProvider, familyProvider, child) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('更多筛选', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-
-              // 账户筛选
-              DropdownButtonFormField<int?>(
-                value: _filterAccountId,
-                decoration: const InputDecoration(
-                  labelText: '账户',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('全部账户')),
-                  ...accountProvider.visibleAccounts.map((account) {
-                    return DropdownMenuItem(
-                      value: account.id,
-                      child: Text(account.name),
-                    );
-                  }),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _filterAccountId = value;
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // 分类筛选
-              DropdownButtonFormField<int?>(
-                value: _filterCategoryId,
-                decoration: const InputDecoration(
-                  labelText: '分类',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('全部分类')),
-                  ...categoryProvider.visibleCategories.map((category) {
-                    return DropdownMenuItem(
-                      value: category.id,
-                      child: Text(category.name),
-                    );
-                  }),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _filterCategoryId = value;
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// 显示搜索对话框
-  void _showSearchDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('搜索账单'),
-        content: TextField(
-          controller: _searchController,
-          decoration: const InputDecoration(
-            hintText: '输入关键词',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-          onSubmitted: (_) {
-            Navigator.pop(context);
-            setState(() {});
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              _searchController.clear();
-              Navigator.pop(context);
-              setState(() {});
-            },
-            child: const Text('清除'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() {});
-            },
-            child: const Text('搜索'),
-          ),
-        ],
+      isScrollControlled: true,
+      builder: (context) => _CategorySelectorSheet(
+        categories: categoryProvider.visibleCategories,
+        selectedCategoryIds: _selectedCategoryIds,
+        onConfirm: (selectedIds) {
+          setState(() {
+            _selectedCategoryIds = selectedIds;
+          });
+        },
       ),
     );
   }
@@ -676,7 +646,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
       MaterialPageRoute(
         builder: (context) => const TransactionFormScreen(),
       ),
-    );
+    ).then((_) => _loadData());
   }
 
   /// 跳转到账单详情
@@ -686,6 +656,324 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
       MaterialPageRoute(
         builder: (context) => TransactionDetailScreen(transaction: transaction),
       ),
+    ).then((_) => _loadData());
+  }
+}
+
+/// 月份选择器对话框
+class _MonthPickerDialog extends StatefulWidget {
+  final DateTime selectedMonth;
+
+  const _MonthPickerDialog({required this.selectedMonth});
+
+  @override
+  State<_MonthPickerDialog> createState() => _MonthPickerDialogState();
+}
+
+class _MonthPickerDialogState extends State<_MonthPickerDialog> {
+  late int selectedYear;
+  late int selectedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedYear = widget.selectedMonth.year;
+    selectedMonth = widget.selectedMonth.month;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('选择月份'),
+      content: SizedBox(
+        width: 300,
+        height: 300,
+        child: Column(
+          children: [
+            // 年份选择
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () {
+                    setState(() {
+                      selectedYear--;
+                    });
+                  },
+                ),
+                Text(
+                  '$selectedYear年',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () {
+                    setState(() {
+                      selectedYear++;
+                    });
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 月份网格
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  childAspectRatio: 1.5,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: 12,
+                itemBuilder: (context, index) {
+                  final month = index + 1;
+                  final isSelected = month == selectedMonth && selectedYear == widget.selectedMonth.year;
+
+                  return InkWell(
+                    onTap: () {
+                      Navigator.pop(
+                        context,
+                        DateTime(selectedYear, month),
+                      );
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF4CAF50) : Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$month月',
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black87,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+      ],
     );
+  }
+}
+
+/// 分类选择器弹窗
+class _CategorySelectorSheet extends StatefulWidget {
+  final List<Category> categories;
+  final List<int> selectedCategoryIds;
+  final Function(List<int>) onConfirm;
+
+  const _CategorySelectorSheet({
+    required this.categories,
+    required this.selectedCategoryIds,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_CategorySelectorSheet> createState() => _CategorySelectorSheetState();
+}
+
+class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
+  late List<int> _tempSelectedIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempSelectedIds = List.from(widget.selectedCategoryIds);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 分离收入和支出分类
+    final incomeCategories = widget.categories.where((c) => c.type == 'income').toList();
+    final expenseCategories = widget.categories.where((c) => c.type == 'expense').toList();
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 标题栏
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Colors.grey[200]!),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Text(
+                  '选择分类',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                if (_tempSelectedIds.isNotEmpty)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _tempSelectedIds.clear();
+                      });
+                    },
+                    child: const Text('清除'),
+                  ),
+              ],
+            ),
+          ),
+
+          // 分类列表
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                // 支出分类
+                if (expenseCategories.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.arrow_upward, size: 16, color: Colors.red),
+                        const SizedBox(width: 4),
+                        Text(
+                          '支出分类',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...expenseCategories.map((category) =>
+                    _buildCategoryItem(category)),
+                ],
+
+                // 收入分类
+                if (incomeCategories.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.arrow_downward, size: 16, color: Colors.green),
+                        const SizedBox(width: 4),
+                        Text(
+                          '收入分类',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ...incomeCategories.map((category) =>
+                    _buildCategoryItem(category)),
+                ],
+              ],
+            ),
+          ),
+
+          // 底部按钮
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Colors.grey[200]!),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '已选择 ${_tempSelectedIds.length} 个分类',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    widget.onConfirm(_tempSelectedIds);
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4CAF50),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('确定'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryItem(Category category) {
+    final isSelected = _tempSelectedIds.contains(category.id);
+
+    return ListTile(
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
+              : Colors.grey[100],
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Icon(
+          _getCategoryIcon(category),
+          size: 20,
+          color: isSelected ? const Color(0xFF4CAF50) : Colors.grey[600],
+        ),
+      ),
+      title: Text(category.name),
+      trailing: isSelected
+          ? const Icon(Icons.check_circle, color: Color(0xFF4CAF50))
+          : const Icon(Icons.circle_outlined, color: Colors.grey),
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _tempSelectedIds.remove(category.id);
+          } else {
+            _tempSelectedIds.add(category.id!);
+          }
+        });
+      },
+    );
+  }
+
+  IconData _getCategoryIcon(Category category) {
+    final name = category.name;
+    if (name.contains('餐饮') || name.contains('吃')) return Icons.restaurant;
+    if (name.contains('购物')) return Icons.shopping_bag;
+    if (name.contains('交通')) return Icons.directions_car;
+    if (name.contains('娱乐')) return Icons.sports_esports;
+    if (name.contains('医疗')) return Icons.local_hospital;
+    if (name.contains('服务')) return Icons.room_service;
+    if (name.contains('工资') || name.contains('收入')) return Icons.account_balance_wallet;
+    return Icons.category;
   }
 }

@@ -18,6 +18,10 @@ class TransactionProvider with ChangeNotifier {
   String? _filterType;
   DateTime? _filterStartDate;
   DateTime? _filterEndDate;
+  String? _filterCounterparty;
+
+  // 对手方相关
+  List<String> _counterparties = [];
 
   // 加载状态
   bool _isLoading = false;
@@ -35,6 +39,10 @@ class TransactionProvider with ChangeNotifier {
   String? get filterType => _filterType;
   DateTime? get filterStartDate => _filterStartDate;
   DateTime? get filterEndDate => _filterEndDate;
+  String? get filterCounterparty => _filterCounterparty;
+
+  // 对手方 Getters
+  List<String> get counterparties => _counterparties;
 
   /// 获取收入账单
   List<model.Transaction> get incomeTransactions =>
@@ -86,6 +94,7 @@ class TransactionProvider with ChangeNotifier {
           accountId: _filterAccountId,
           categoryId: _filterCategoryId,
           type: _filterType,
+          counterparty: _filterCounterparty,
         );
       } else if (_filterAccountId != null) {
         _transactions = await _dbService.getTransactionsByAccountId(_filterAccountId!);
@@ -111,6 +120,7 @@ class TransactionProvider with ChangeNotifier {
     required String type,
     required double amount,
     String? description,
+    String? counterparty,
     DateTime? transactionTime,
     String importSource = 'manual',
     bool isConfirmed = true,
@@ -123,6 +133,7 @@ class TransactionProvider with ChangeNotifier {
         type: type,
         amount: amount,
         description: description,
+        counterparty: counterparty,
         transactionTime: transactionTime ?? DateTime.now(),
         importSource: importSource,
         isConfirmed: isConfirmed,
@@ -458,5 +469,76 @@ class TransactionProvider with ChangeNotifier {
   void clearError() {
     _clearError();
     notifyListeners();
+  }
+
+  // ==================== 对手方管理 ====================
+
+  /// 加载历史对手方列表
+  Future<void> loadCounterparties() async {
+    try {
+      _counterparties = await _dbService.getCounterparties();
+      notifyListeners();
+    } catch (e) {
+      _setError('加载对手方列表失败: $e');
+    }
+  }
+
+  /// 搜索对手方（用于自动补全）
+  Future<List<String>> searchCounterparties(String keyword) async {
+    if (keyword.trim().isEmpty) {
+      return _counterparties.take(10).toList();
+    }
+    return await _dbService.searchCounterparties(keyword);
+  }
+
+  /// 设置对手方筛选
+  void setCounterpartyFilter(String? counterparty) {
+    _filterCounterparty = counterparty;
+    notifyListeners();
+    loadTransactionsWithFilter();
+  }
+
+  /// 清除对手方筛选
+  void clearCounterpartyFilter() {
+    _filterCounterparty = null;
+    notifyListeners();
+    loadTransactionsWithFilter();
+  }
+
+  /// 获取对手方统计
+  Future<Map<String, dynamic>> getCounterpartyStatistics(
+      String counterparty) async {
+    return await _dbService.getCounterpartyStatistics(counterparty);
+  }
+
+  /// 获取对手方排行
+  Future<List<Map<String, dynamic>>> getCounterpartyRanking({
+    required String type,
+    int limit = 10,
+  }) async {
+    return await _dbService.getCounterpartyRanking(
+      type: type,
+      limit: limit,
+    );
+  }
+
+  /// 智能推荐对手方（基于描述）
+  Future<List<String>> recommendCounterparty(String description) async {
+    if (description.trim().isEmpty) {
+      return [];
+    }
+
+    // 简单实现：搜索描述中包含的关键词
+    final keywords = description.trim().split(' ');
+    final Set<String> recommendations = {};
+
+    for (var keyword in keywords) {
+      if (keyword.length >= 2) {
+        final results = await searchCounterparties(keyword);
+        recommendations.addAll(results.take(3));
+      }
+    }
+
+    return recommendations.take(5).toList();
   }
 }

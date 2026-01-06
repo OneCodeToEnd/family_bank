@@ -53,9 +53,9 @@ class TransactionDbService {
     await batch.commit(noResult: true);
 
     return {
-      'success_count': successCount,
-      'duplicate_count': duplicateCount,
-      'duplicate_hashes': duplicateHashes,
+      'successCount': successCount,
+      'duplicateCount': duplicateCount,
+      'duplicateHashes': duplicateHashes,
     };
   }
 
@@ -179,6 +179,7 @@ class TransactionDbService {
     int? accountId,
     int? categoryId,
     String? type,
+    String? counterparty,
   }) async {
     final db = await _dbService.database;
 
@@ -201,6 +202,11 @@ class TransactionDbService {
     if (type != null) {
       whereClause += ' AND ${DbConstants.columnTransactionType} = ?';
       whereArgs.add(type);
+    }
+
+    if (counterparty != null && counterparty.isNotEmpty) {
+      whereClause += ' AND ${DbConstants.columnTransactionCounterparty} = ?';
+      whereArgs.add(counterparty);
     }
 
     final List<Map<String, dynamic>> maps = await db.query(
@@ -454,5 +460,119 @@ class TransactionDbService {
     ''', whereArgs);
 
     return result;
+  }
+
+  /// 获取历史交易对手方列表（按最近使用排序）
+  Future<List<String>> getCounterparties({int limit = 50}) async {
+    final db = await _dbService.database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT DISTINCT ${DbConstants.columnTransactionCounterparty} as counterparty,
+             MAX(${DbConstants.columnTransactionTime}) as last_used
+      FROM ${DbConstants.tableTransactions}
+      WHERE ${DbConstants.columnTransactionCounterparty} IS NOT NULL
+        AND ${DbConstants.columnTransactionCounterparty} != ''
+      GROUP BY ${DbConstants.columnTransactionCounterparty}
+      ORDER BY last_used DESC
+      LIMIT ?
+    ''', [limit]);
+
+    return maps.map((m) => m['counterparty'] as String).toList();
+  }
+
+  /// 搜索交易对手方（用于自动补全）
+  Future<List<String>> searchCounterparties(String keyword) async {
+    final db = await _dbService.database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT DISTINCT ${DbConstants.columnTransactionCounterparty} as counterparty,
+             MAX(${DbConstants.columnTransactionTime}) as last_used
+      FROM ${DbConstants.tableTransactions}
+      WHERE ${DbConstants.columnTransactionCounterparty} LIKE ?
+      GROUP BY ${DbConstants.columnTransactionCounterparty}
+      ORDER BY last_used DESC
+      LIMIT 20
+    ''', ['%$keyword%']);
+
+    return maps.map((m) => m['counterparty'] as String).toList();
+  }
+
+  /// 获取与某对手方的交易统计
+  Future<Map<String, dynamic>> getCounterpartyStatistics(
+      String counterparty) async {
+    final db = await _dbService.database;
+    final result = await db.rawQuery('''
+      SELECT
+        COUNT(*) as transaction_count,
+        SUM(CASE WHEN ${DbConstants.columnTransactionType} = 'income'
+            THEN ${DbConstants.columnTransactionAmount} ELSE 0 END) as total_income,
+        SUM(CASE WHEN ${DbConstants.columnTransactionType} = 'expense'
+            THEN ${DbConstants.columnTransactionAmount} ELSE 0 END) as total_expense,
+        MIN(${DbConstants.columnTransactionTime}) as first_transaction,
+        MAX(${DbConstants.columnTransactionTime}) as last_transaction
+      FROM ${DbConstants.tableTransactions}
+      WHERE ${DbConstants.columnTransactionCounterparty} = ?
+    ''', [counterparty]);
+
+    if (result.isEmpty) {
+      return {
+        'transaction_count': 0,
+        'total_income': 0.0,
+        'total_expense': 0.0,
+      };
+    }
+    return result.first;
+  }
+
+  /// 获取对手方排行（按交易金额）
+  Future<List<Map<String, dynamic>>> getCounterpartyRanking({
+    required String type,
+    int limit = 10,
+  }) async {
+    final db = await _dbService.database;
+    return await db.rawQuery('''
+      SELECT
+        ${DbConstants.columnTransactionCounterparty} as counterparty,
+        COUNT(*) as transaction_count,
+        SUM(${DbConstants.columnTransactionAmount}) as total_amount
+      FROM ${DbConstants.tableTransactions}
+      WHERE ${DbConstants.columnTransactionType} = ?
+        AND ${DbConstants.columnTransactionCounterparty} IS NOT NULL
+        AND ${DbConstants.columnTransactionCounterparty} != ''
+      GROUP BY ${DbConstants.columnTransactionCounterparty}
+      ORDER BY total_amount DESC
+      LIMIT ?
+    ''', [type, limit]);
+  }
+
+  /// 查找相似交易（用于历史学习匹配）
+  Future<List<model.Transaction>> findSimilar({
+    required String description,
+    required double amount,
+    required String type,
+    int limit = 10,
+  }) async {
+    final db = await _dbService.database;
+
+    // 使用简单的LIKE匹配查找相似描述
+    // 同时考虑金额范围（±20%）和交易类型
+    final amountLower = amount * 0.8;
+    final amountUpper = amount * 1.2;
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      DbConstants.tableTransactions,
+      where: '''
+        ${DbConstants.columnTransactionDescription} LIKE ?
+        AND ${DbConstants.columnTransactionType} = ?
+        AND ${DbConstants.columnTransactionAmount} BETWEEN ? AND ?
+        AND ${DbConstants.columnTransactionCategoryId} IS NOT NULL
+        AND ${DbConstants.columnTransactionIsConfirmed} = 1
+      ''',
+      whereArgs: ['%$description%', type, amountLower, amountUpper],
+      orderBy: '${DbConstants.columnTransactionTime} DESC',
+      limit: limit,
+    );
+
+    return List.generate(maps.length, (i) {
+      return model.Transaction.fromMap(maps[i]);
+    });
   }
 }

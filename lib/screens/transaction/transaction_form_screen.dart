@@ -24,6 +24,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _notesController = TextEditingController();
+  final _counterpartyController = TextEditingController();
 
   String _selectedType = 'expense'; // income, expense
   int? _selectedAccountId;
@@ -41,12 +42,19 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
       _amountController.text = widget.transaction!.amount.toString();
       _descriptionController.text = widget.transaction!.description ?? '';
       _notesController.text = widget.transaction!.notes ?? '';
+      _counterpartyController.text = widget.transaction!.counterparty ?? '';
       _selectedType = widget.transaction!.type;
       _selectedAccountId = widget.transaction!.accountId;
       _selectedCategoryId = widget.transaction!.categoryId;
       _selectedDate = widget.transaction!.transactionTime;
       _selectedTime = TimeOfDay.fromDateTime(widget.transaction!.transactionTime);
     }
+
+    // 加载历史对手方
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<TransactionProvider>(context, listen: false)
+          .loadCounterparties();
+    });
   }
 
   @override
@@ -54,6 +62,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
     _amountController.dispose();
     _descriptionController.dispose();
     _notesController.dispose();
+    _counterpartyController.dispose();
     super.dispose();
   }
 
@@ -88,6 +97,10 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
 
             // 描述输入
             _buildDescriptionInput(),
+            const SizedBox(height: 16),
+
+            // 交易对方输入
+            _buildCounterpartyInput(),
             const SizedBox(height: 16),
 
             // 日期时间
@@ -422,6 +435,95 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
     );
   }
 
+  /// 交易对方输入（支持自动补全）
+  Widget _buildCounterpartyInput() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Consumer<TransactionProvider>(
+          builder: (context, provider, child) {
+            return Autocomplete<String>(
+              optionsBuilder: (TextEditingValue textEditingValue) async {
+                if (textEditingValue.text.isEmpty) {
+                  // 显示最近使用的对手方
+                  return provider.counterparties.take(10);
+                }
+                // 搜索匹配的对手方
+                return await provider.searchCounterparties(textEditingValue.text);
+              },
+              onSelected: (String selection) {
+                _counterpartyController.text = selection;
+              },
+              fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                // 同步控制器
+                if (controller.text != _counterpartyController.text) {
+                  controller.text = _counterpartyController.text;
+                }
+                controller.addListener(() {
+                  if (_counterpartyController.text != controller.text) {
+                    _counterpartyController.text = controller.text;
+                  }
+                });
+
+                return TextFormField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  decoration: const InputDecoration(
+                    labelText: '交易对方（可选）',
+                    hintText: '例如：小明、超市、房东',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  textInputAction: TextInputAction.next,
+                );
+              },
+              optionsViewBuilder: (context, onSelected, options) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 4.0,
+                    borderRadius: BorderRadius.circular(8),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200, maxWidth: 300),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(8.0),
+                        itemCount: options.length,
+                        shrinkWrap: true,
+                        itemBuilder: (BuildContext context, int index) {
+                          final String option = options.elementAt(index);
+                          return InkWell(
+                            onTap: () {
+                              onSelected(option);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.history, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      option,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   /// 日期时间选择
   Widget _buildDateTimeSelector() {
     return Card(
@@ -549,6 +651,9 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
         categoryId: _selectedCategoryId,
         amount: double.parse(_amountController.text.trim()),
         description: _descriptionController.text.trim(),
+        counterparty: _counterpartyController.text.trim().isNotEmpty
+            ? _counterpartyController.text.trim()
+            : null,
         transactionTime: transactionTime,
       );
       success = await transactionProvider.updateTransaction(updatedTransaction);
@@ -560,6 +665,9 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
         categoryId: _selectedCategoryId,
         amount: double.parse(_amountController.text.trim()),
         description: _descriptionController.text.trim(),
+        counterparty: _counterpartyController.text.trim().isNotEmpty
+            ? _counterpartyController.text.trim()
+            : null,
         transactionTime: transactionTime,
       );
     }

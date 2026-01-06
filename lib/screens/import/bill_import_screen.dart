@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
-import '../../providers/transaction_provider.dart';
 import '../../providers/account_provider.dart';
 import '../../services/import/bill_import_service.dart';
 import '../../models/transaction.dart' as model;
+import 'import_confirmation_screen.dart';
 
 /// 账单导入页面
 class BillImportScreen extends StatefulWidget {
@@ -463,8 +463,17 @@ class _BillImportScreenState extends State<BillImportScreen> {
     });
 
     try {
-      final transactionProvider = context.read<TransactionProvider>();
-      final result = await transactionProvider.importTransactionsBatch(_previewTransactions!);
+      // 跳转到确认页面（会自动进行 AI 分类）
+      if (!mounted) return;
+
+      final savedCount = await Navigator.push<int>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ImportConfirmationScreen(
+            transactions: _previewTransactions!,
+          ),
+        ),
+      );
 
       setState(() {
         _isImporting = false;
@@ -472,43 +481,17 @@ class _BillImportScreenState extends State<BillImportScreen> {
 
       if (!mounted) return;
 
-      if (result != null) {
-        // 显示导入结果
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('导入完成'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('成功导入: ${result['success_count']} 笔'),
-                Text('重复跳过: ${result['duplicate_count']} 笔'),
-                const SizedBox(height: 8),
-                const Text(
-                  '提示：导入的账单未分类，可以使用智能分类功能自动分类。',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // 关闭对话框
-                  Navigator.pop(context); // 返回上一页
-                },
-                child: const Text('完成'),
-              ),
-            ],
-          ),
-        );
-      } else {
+      if (savedCount != null && savedCount > 0) {
+        // 显示导入成功
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('导入失败'),
-            backgroundColor: Colors.red,
+          SnackBar(
+            content: Text('成功导入 $savedCount 笔账单'),
+            backgroundColor: Colors.green,
           ),
         );
+
+        // 返回上一页
+        Navigator.pop(context);
       }
     } catch (e) {
       setState(() {

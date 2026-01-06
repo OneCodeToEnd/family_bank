@@ -2,7 +2,7 @@
 class DbConstants {
   // 数据库信息
   static const String dbName = 'family_bank.db';
-  static const int dbVersion = 1;
+  static const int dbVersion = 4;
 
   // 表名
   static const String tableFamilyGroups = 'family_groups';
@@ -13,6 +13,7 @@ class DbConstants {
   static const String tableCategoryRules = 'category_rules';
   static const String tableBudgets = 'budgets';
   static const String tableAppSettings = 'app_settings';
+  static const String tableHttpLogs = 'http_logs';
 
   // 通用字段
   static const String columnId = 'id';
@@ -59,6 +60,7 @@ class DbConstants {
   static const String columnTransactionIsConfirmed = 'is_confirmed';
   static const String columnTransactionNotes = 'notes';
   static const String columnTransactionHash = 'hash';
+  static const String columnTransactionCounterparty = 'counterparty';
 
   // category_rules 表字段
   static const String columnRuleKeyword = 'keyword';
@@ -67,6 +69,15 @@ class DbConstants {
   static const String columnRuleIsActive = 'is_active';
   static const String columnRuleMatchCount = 'match_count';
   static const String columnRuleSource = 'source';
+
+  // V3.0 新增字段
+  static const String columnRuleMatchType = 'match_type';
+  static const String columnRuleMatchPosition = 'match_position';
+  static const String columnRuleMinConfidence = 'min_confidence';
+  static const String columnRuleCounterparty = 'counterparty';
+  static const String columnRuleAliases = 'aliases';
+  static const String columnRuleAutoLearn = 'auto_learn';
+  static const String columnRuleCaseSensitive = 'case_sensitive';
 
   // budgets 表字段
   static const String columnBudgetTargetType = 'target_type';
@@ -80,6 +91,27 @@ class DbConstants {
   // app_settings 表字段
   static const String columnSettingKey = 'key';
   static const String columnSettingValue = 'value';
+
+  // http_logs 表字段
+  static const String columnLogRequestId = 'request_id';
+  static const String columnLogMethod = 'method';
+  static const String columnLogUrl = 'url';
+  static const String columnLogRequestHeaders = 'request_headers';
+  static const String columnLogRequestBody = 'request_body';
+  static const String columnLogRequestSize = 'request_size';
+  static const String columnLogStatusCode = 'status_code';
+  static const String columnLogStatusMessage = 'status_message';
+  static const String columnLogResponseHeaders = 'response_headers';
+  static const String columnLogResponseBody = 'response_body';
+  static const String columnLogResponseSize = 'response_size';
+  static const String columnLogStartTime = 'start_time';
+  static const String columnLogEndTime = 'end_time';
+  static const String columnLogDurationMs = 'duration_ms';
+  static const String columnLogErrorType = 'error_type';
+  static const String columnLogErrorMessage = 'error_message';
+  static const String columnLogStackTrace = 'stack_trace';
+  static const String columnLogServiceName = 'service_name';
+  static const String columnLogApiProvider = 'api_provider';
 }
 
 /// 账户类型枚举
@@ -154,6 +186,47 @@ class ImportSource {
 class RuleSource {
   static const String user = 'user';
   static const String model = 'model';
+  static const String learned = 'learned';
+}
+
+/// 规则匹配类型枚举
+class RuleMatchType {
+  static const String exact = 'exact';
+  static const String partial = 'partial';
+  static const String counterparty = 'counterparty';
+
+  static String getDisplayName(String type) {
+    switch (type) {
+      case exact:
+        return '精确匹配';
+      case partial:
+        return '部分匹配';
+      case counterparty:
+        return '交易对方';
+      default:
+        return type;
+    }
+  }
+}
+
+/// 规则匹配位置枚举
+class RuleMatchPosition {
+  static const String contains = 'contains';
+  static const String prefix = 'prefix';
+  static const String suffix = 'suffix';
+
+  static String getDisplayName(String position) {
+    switch (position) {
+      case contains:
+        return '包含';
+      case prefix:
+        return '前缀';
+      case suffix:
+        return '后缀';
+      default:
+        return position;
+    }
+  }
 }
 
 /// 预算周期枚举

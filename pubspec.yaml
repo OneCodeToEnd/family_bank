@@ -63,7 +63,12 @@ dependencies:
 
   # 加密
   crypto: ^3.0.3
-  encrypt: ^5.0.3
+
+  # HTTP 请求（AI 服务）
+  http: ^1.1.0
+
+  # UUID 生成
+  uuid: ^4.0.0
 
   # 本地存储
   shared_preferences: ^2.2.2
