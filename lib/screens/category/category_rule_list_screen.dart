@@ -280,11 +280,10 @@ class _CategoryRuleListScreenState extends State<CategoryRuleListScreen> {
               value: rule.isActive ? 'disable' : 'enable',
               child: Text(rule.isActive ? '禁用' : '启用'),
             ),
-            if (rule.source == 'learned')
-              const PopupMenuItem(
-                value: 'delete',
-                child: Text('删除'),
-              ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Text('删除'),
+            ),
           ],
         ),
       ),

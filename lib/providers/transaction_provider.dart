@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 import '../models/transaction.dart' as model;
+import '../models/category.dart' as category_model;
+import '../models/category_stat_node.dart';
 import '../services/database/transaction_db_service.dart';
 import '../services/database/rule_db_service.dart';
+import '../services/database/category_db_service.dart';
 
 /// 账单流水状态管理
 class TransactionProvider with ChangeNotifier {
@@ -414,6 +417,7 @@ class TransactionProvider with ChangeNotifier {
       return await _dbService.getCategoryExpenseRanking(
         startDate: _filterStartDate,
         endDate: _filterEndDate,
+        accountId: _filterAccountId,
         limit: limit,
       );
     } catch (e) {
@@ -522,6 +526,31 @@ class TransactionProvider with ChangeNotifier {
     );
   }
 
+  /// 获取账户支出排行
+  Future<List<Map<String, dynamic>>> getAccountExpenseRanking() async {
+    return await _dbService.getAccountExpenseRanking(
+      startTime: _filterStartDate?.millisecondsSinceEpoch,
+      endTime: _filterEndDate?.millisecondsSinceEpoch,
+    );
+  }
+
+  /// 获取前N大单笔支出
+  Future<List<model.Transaction>> getTopExpenses({int limit = 10}) async {
+    return await _dbService.getTopExpenses(
+      startTime: _filterStartDate?.millisecondsSinceEpoch,
+      endTime: _filterEndDate?.millisecondsSinceEpoch,
+      limit: limit,
+    );
+  }
+
+  /// 获取账户收支统计
+  Future<List<Map<String, dynamic>>> getAccountIncomeExpenseStats() async {
+    return await _dbService.getAccountIncomeExpenseStats(
+      startTime: _filterStartDate?.millisecondsSinceEpoch,
+      endTime: _filterEndDate?.millisecondsSinceEpoch,
+    );
+  }
+
   /// 智能推荐对手方（基于描述）
   Future<List<String>> recommendCounterparty(String description) async {
     if (description.trim().isEmpty) {
@@ -540,5 +569,81 @@ class TransactionProvider with ChangeNotifier {
     }
 
     return recommendations.take(5).toList();
+  }
+
+  // ==================== 分类层级统计 ====================
+
+  /// 获取分类层级统计树
+  Future<List<CategoryStatNode>> getCategoryHierarchyStats({
+    String type = 'expense',
+  }) async {
+    try {
+      // 1. 获取一级分类
+      final categoryDbService = CategoryDbService();
+      final topCategories = await categoryDbService.getTopLevelCategories(type: type);
+
+      // 2. 递归构建统计树
+      final List<CategoryStatNode> statNodes = [];
+      for (var category in topCategories) {
+        if (category.id == null) continue;
+        final node = await _buildCategoryStatNode(category);
+        statNodes.add(node);
+      }
+
+      return statNodes;
+    } catch (e) {
+      _setError('获取分类统计失败: $e');
+      return [];
+    }
+  }
+
+  /// 递归构建分类统计节点
+  Future<CategoryStatNode> _buildCategoryStatNode(category_model.Category category) async {
+    final categoryDbService = CategoryDbService();
+
+    // 获取子分类
+    final children = await categoryDbService.getSubCategories(category.id!);
+
+    // 递归构建子节点
+    final List<CategoryStatNode> childNodes = [];
+    for (var child in children) {
+      final childNode = await _buildCategoryStatNode(child);
+      childNodes.add(childNode);
+    }
+
+    // 获取该分类及所有子分类的统计
+    final stats = await _dbService.getCategoryHierarchyStatistics(
+      category.id!,
+      startDate: _filterStartDate,
+      endDate: _filterEndDate,
+      accountId: _filterAccountId,
+    );
+
+    return CategoryStatNode(
+      category: category,
+      amount: (stats['total_amount'] as num?)?.toDouble() ?? 0.0,
+      transactionCount: stats['transaction_count'] as int? ?? 0,
+      children: childNodes,
+      isExpanded: false,
+    );
+  }
+
+  /// 加载指定分类的流水明细
+  Future<List<model.Transaction>> loadCategoryTransactions(
+    int categoryId, {
+    bool includeChildren = false,
+  }) async {
+    try {
+      return await _dbService.getTransactionsByCategoryHierarchy(
+        categoryId,
+        startDate: _filterStartDate,
+        endDate: _filterEndDate,
+        accountId: _filterAccountId,
+        includeChildren: includeChildren,
+      );
+    } catch (e) {
+      _setError('加载分类流水失败: $e');
+      return [];
+    }
   }
 }

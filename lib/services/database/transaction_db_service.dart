@@ -385,6 +385,7 @@ class TransactionDbService {
   Future<List<Map<String, dynamic>>> getCategoryExpenseRanking({
     DateTime? startDate,
     DateTime? endDate,
+    int? accountId,
     int limit = 10,
   }) async {
     final db = await _dbService.database;
@@ -400,6 +401,11 @@ class TransactionDbService {
     if (endDate != null) {
       whereClause += ' AND t.${DbConstants.columnTransactionTime} <= ?';
       whereArgs.add(endDate.millisecondsSinceEpoch);
+    }
+
+    if (accountId != null) {
+      whereClause += ' AND t.${DbConstants.columnTransactionAccountId} = ?';
+      whereArgs.add(accountId);
     }
 
     final result = await db.rawQuery('''
@@ -574,5 +580,204 @@ class TransactionDbService {
     return List.generate(maps.length, (i) {
       return model.Transaction.fromMap(maps[i]);
     });
+  }
+
+  /// 获取账户支出汇总排行
+  Future<List<Map<String, dynamic>>> getAccountExpenseRanking({
+    int? startTime,
+    int? endTime,
+  }) async {
+    final db = await _dbService.database;
+    final whereConditions = <String>['t.${DbConstants.columnTransactionType} = ?'];
+    final whereArgs = <dynamic>['expense'];
+
+    if (startTime != null) {
+      whereConditions.add('t.${DbConstants.columnTransactionTime} >= ?');
+      whereArgs.add(startTime);
+    }
+    if (endTime != null) {
+      whereConditions.add('t.${DbConstants.columnTransactionTime} <= ?');
+      whereArgs.add(endTime);
+    }
+
+    return await db.rawQuery('''
+      SELECT
+        a.${DbConstants.columnId} as account_id,
+        a.${DbConstants.columnAccountName} as account_name,
+        a.${DbConstants.columnAccountType} as account_type,
+        COUNT(t.${DbConstants.columnId}) as transaction_count,
+        SUM(t.${DbConstants.columnTransactionAmount}) as total_amount
+      FROM ${DbConstants.tableTransactions} t
+      INNER JOIN ${DbConstants.tableAccounts} a ON t.${DbConstants.columnTransactionAccountId} = a.${DbConstants.columnId}
+      WHERE ${whereConditions.join(' AND ')}
+      GROUP BY a.${DbConstants.columnId}
+      ORDER BY total_amount DESC
+    ''', whereArgs);
+  }
+
+  /// 获取前N大单笔支出
+  Future<List<model.Transaction>> getTopExpenses({
+    int? startTime,
+    int? endTime,
+    int limit = 10,
+  }) async {
+    final db = await _dbService.database;
+    final whereConditions = <String>['${DbConstants.columnTransactionType} = ?'];
+    final whereArgs = <dynamic>['expense'];
+
+    if (startTime != null) {
+      whereConditions.add('${DbConstants.columnTransactionTime} >= ?');
+      whereArgs.add(startTime);
+    }
+    if (endTime != null) {
+      whereConditions.add('${DbConstants.columnTransactionTime} <= ?');
+      whereArgs.add(endTime);
+    }
+
+    final maps = await db.query(
+      DbConstants.tableTransactions,
+      where: whereConditions.join(' AND '),
+      whereArgs: whereArgs,
+      orderBy: '${DbConstants.columnTransactionAmount} DESC',
+      limit: limit,
+    );
+
+    return List.generate(maps.length, (i) => model.Transaction.fromMap(maps[i]));
+  }
+
+  /// 获取账户收支统计（用于对比图）
+  Future<List<Map<String, dynamic>>> getAccountIncomeExpenseStats({
+    int? startTime,
+    int? endTime,
+  }) async {
+    final db = await _dbService.database;
+    final whereConditions = <String>[];
+    final whereArgs = <dynamic>[];
+
+    if (startTime != null) {
+      whereConditions.add('t.${DbConstants.columnTransactionTime} >= ?');
+      whereArgs.add(startTime);
+    }
+    if (endTime != null) {
+      whereConditions.add('t.${DbConstants.columnTransactionTime} <= ?');
+      whereArgs.add(endTime);
+    }
+
+    final whereClause = whereConditions.isEmpty ? '' : 'WHERE ${whereConditions.join(' AND ')}';
+
+    return await db.rawQuery('''
+      SELECT
+        a.${DbConstants.columnId} as account_id,
+        a.${DbConstants.columnAccountName} as account_name,
+        SUM(CASE WHEN t.${DbConstants.columnTransactionType} = 'income' THEN t.${DbConstants.columnTransactionAmount} ELSE 0 END) as total_income,
+        SUM(CASE WHEN t.${DbConstants.columnTransactionType} = 'expense' THEN t.${DbConstants.columnTransactionAmount} ELSE 0 END) as total_expense
+      FROM ${DbConstants.tableTransactions} t
+      INNER JOIN ${DbConstants.tableAccounts} a ON t.${DbConstants.columnTransactionAccountId} = a.${DbConstants.columnId}
+      $whereClause
+      GROUP BY a.${DbConstants.columnId}
+      ORDER BY total_expense DESC
+    ''', whereArgs);
+  }
+
+  // ==================== 分类层级统计 ====================
+
+  /// 获取指定分类的所有流水（包括子分类）
+  Future<List<model.Transaction>> getTransactionsByCategoryHierarchy(
+    int categoryId, {
+    DateTime? startDate,
+    DateTime? endDate,
+    int? accountId,
+    bool includeChildren = true,
+  }) async {
+    final db = await _dbService.database;
+
+    // 获取所有相关的分类ID
+    List<int> categoryIds = [categoryId];
+    if (includeChildren) {
+      final descendantIds = await _getCategoryDescendantIds(categoryId);
+      categoryIds.addAll(descendantIds);
+    }
+
+    // 构建查询条件
+    String whereClause = '${DbConstants.columnTransactionCategoryId} IN (${categoryIds.join(',')})';
+    List<dynamic> whereArgs = [];
+
+    if (startDate != null) {
+      whereClause += ' AND ${DbConstants.columnTransactionTime} >= ?';
+      whereArgs.add(startDate.millisecondsSinceEpoch);
+    }
+
+    if (endDate != null) {
+      whereClause += ' AND ${DbConstants.columnTransactionTime} <= ?';
+      whereArgs.add(endDate.millisecondsSinceEpoch);
+    }
+
+    if (accountId != null) {
+      whereClause += ' AND ${DbConstants.columnTransactionAccountId} = ?';
+      whereArgs.add(accountId);
+    }
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      DbConstants.tableTransactions,
+      where: whereClause,
+      whereArgs: whereArgs.isEmpty ? null : whereArgs,
+      orderBy: '${DbConstants.columnTransactionTime} DESC',
+    );
+
+    return List.generate(maps.length, (i) {
+      return model.Transaction.fromMap(maps[i]);
+    });
+  }
+
+  /// 获取分类的所有子孙分类ID（递归）
+  Future<List<int>> _getCategoryDescendantIds(int categoryId) async {
+    final db = await _dbService.database;
+    final List<int> descendantIds = [];
+
+    // 获取直接子分类
+    final List<Map<String, dynamic>> children = await db.query(
+      DbConstants.tableCategories,
+      columns: [DbConstants.columnId],
+      where: '${DbConstants.columnCategoryParentId} = ?',
+      whereArgs: [categoryId],
+    );
+
+    for (var child in children) {
+      final childId = child[DbConstants.columnId] as int;
+      descendantIds.add(childId);
+
+      // 递归获取子分类的子分类
+      final grandChildren = await _getCategoryDescendantIds(childId);
+      descendantIds.addAll(grandChildren);
+    }
+
+    return descendantIds;
+  }
+
+  /// 获取分类及其所有子孙分类的交易统计
+  Future<Map<String, dynamic>> getCategoryHierarchyStatistics(
+    int categoryId, {
+    DateTime? startDate,
+    DateTime? endDate,
+    int? accountId,
+  }) async {
+    final transactions = await getTransactionsByCategoryHierarchy(
+      categoryId,
+      startDate: startDate,
+      endDate: endDate,
+      accountId: accountId,
+      includeChildren: true,
+    );
+
+    double totalAmount = 0.0;
+    for (var transaction in transactions) {
+      totalAmount += transaction.amount;
+    }
+
+    return {
+      'category_id': categoryId,
+      'transaction_count': transactions.length,
+      'total_amount': totalAmount,
+    };
   }
 }

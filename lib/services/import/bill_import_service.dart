@@ -142,7 +142,7 @@ class BillImportService {
           }
 
           // 跳过非成功状态
-          if (status != '支付成功' && status != '已转账' && status != '已存入零钱') {
+          if (status != '支付成功' && status != '已转账' && status != '已存入零钱' && status != '对方已收钱') {
             continue;
           }
 

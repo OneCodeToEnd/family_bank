@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../providers/transaction_provider.dart';
+import '../../providers/account_provider.dart';
+import '../../widgets/category_hierarchy_stat_card.dart';
 
 /// 数据分析页面
 class AnalysisScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   String _selectedPeriod = 'month'; // month, quarter, year, all
   DateTime? _customStartDate;
   DateTime? _customEndDate;
+  int? _selectedAccountId; // 选中的账户ID，null表示全部账户
 
   @override
   void initState() {
@@ -53,7 +56,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         endDate = null;
     }
 
+    // 应用时间和账户筛选
     provider.setDateRangeFilter(startDate, endDate);
+    provider.setAccountFilter(_selectedAccountId);
     await provider.loadTransactionsWithFilter();
   }
 
@@ -63,6 +68,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       appBar: AppBar(
         title: const Text('数据分析'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet),
+            onPressed: _showAccountSelector,
+            tooltip: '选择账户',
+          ),
           IconButton(
             icon: const Icon(Icons.calendar_today),
             onPressed: _showPeriodSelector,
@@ -111,12 +121,40 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 _buildOverviewCard(provider),
                 const SizedBox(height: 16),
 
+                // 分类统计看板（新增）
+                const CategoryHierarchyStatCard(),
+                const SizedBox(height: 16),
+
                 // 收支趋势图
                 _buildTrendChart(provider),
                 const SizedBox(height: 16),
 
                 // 分类支出排行
                 _buildCategoryRanking(provider),
+                const SizedBox(height: 16),
+
+                // 账户支出汇总
+                _buildAccountExpenseRanking(provider),
+                const SizedBox(height: 16),
+
+                // 前十大单笔支出
+                _buildTopExpenses(provider),
+                const SizedBox(height: 16),
+
+                // 账户收支对比
+                _buildAccountIncomeExpenseChart(provider),
+                const SizedBox(height: 16),
+
+                // 支出对方排行
+                _buildCounterpartyRanking(provider),
+                const SizedBox(height: 16),
+
+                // 分类支出饼图
+                _buildCategoryPieChart(provider),
+                const SizedBox(height: 16),
+
+                // 月度同比环比
+                _buildMonthComparison(provider),
               ],
             ),
           );
@@ -151,16 +189,43 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         periodText = '全部';
     }
 
+    // 获取账户名称
+    String accountText = '全部账户';
+    if (_selectedAccountId != null) {
+      final accountProvider = context.read<AccountProvider>();
+      final account = accountProvider.accounts.firstWhere(
+        (a) => a.id == _selectedAccountId,
+        orElse: () => accountProvider.accounts.first,
+      );
+      accountText = account.name;
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.calendar_month, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              '统计时间段：$periodText',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            Row(
+              children: [
+                const Icon(Icons.calendar_month, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '统计时间段：$periodText',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.account_balance_wallet, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '账户：$accountText',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ],
             ),
           ],
         ),
@@ -171,6 +236,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   /// 总览统计卡片
   Widget _buildOverviewCard(TransactionProvider provider) {
     return FutureBuilder<Map<String, dynamic>?>(
+      key: ValueKey('overview_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
       future: provider.getStatistics(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -336,6 +402,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             ),
             const SizedBox(height: 16),
             FutureBuilder<List<Map<String, dynamic>>>(
+              key: ValueKey('trend_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
               future: provider.getMonthlyTrend(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -489,6 +556,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             ),
             const SizedBox(height: 16),
             FutureBuilder<List<Map<String, dynamic>>>(
+              key: ValueKey('category_ranking_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
               future: provider.getCategoryExpenseRanking(limit: 10),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -702,5 +770,454 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       });
       _loadData();
     }
+  }
+
+  /// 账户选择器
+  void _showAccountSelector() {
+    final accountProvider = context.read<AccountProvider>();
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '选择账户',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              // 全部账户选项
+              ListTile(
+                leading: const Icon(Icons.all_inclusive),
+                title: const Text('全部账户'),
+                selected: _selectedAccountId == null,
+                onTap: () {
+                  setState(() => _selectedAccountId = null);
+                  Navigator.pop(context);
+                  _loadData();
+                },
+              ),
+              const Divider(),
+              // 账户列表
+              ...accountProvider.visibleAccounts.map((account) {
+                return ListTile(
+                  leading: Icon(_getAccountIcon(account.icon)),
+                  title: Text(account.name),
+                  subtitle: Text(account.type),
+                  selected: _selectedAccountId == account.id,
+                  onTap: () {
+                    setState(() => _selectedAccountId = account.id);
+                    Navigator.pop(context);
+                    _loadData();
+                  },
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 获取账户图标
+  IconData _getAccountIcon(String? iconName) {
+    if (iconName == null) return Icons.account_balance_wallet;
+
+    final iconMap = {
+      'wallet': Icons.account_balance_wallet,
+      'credit_card': Icons.credit_card,
+      'savings': Icons.savings,
+      'account_balance': Icons.account_balance,
+      'payment': Icons.payment,
+      'money': Icons.attach_money,
+    };
+
+    return iconMap[iconName] ?? Icons.account_balance_wallet;
+  }
+
+  /// 账户支出汇总
+  Widget _buildAccountExpenseRanking(TransactionProvider provider) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      key: ValueKey('account_expense_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
+      future: provider.getAccountExpenseRanking(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final data = snapshot.data!;
+        final total = data.fold<double>(0, (sum, item) => sum + (item['total_amount'] as num).toDouble());
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('账户支出排行', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                ...data.map((item) {
+                  final amount = (item['total_amount'] as num).toDouble();
+                  final percentage = (amount / total * 100).toStringAsFixed(1);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item['account_name'], style: const TextStyle(fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 4),
+                              LinearProgressIndicator(value: amount / total, backgroundColor: Colors.grey[200]),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('¥${amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text('$percentage%', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 前十大单笔支出
+  Widget _buildTopExpenses(TransactionProvider provider) {
+    return FutureBuilder(
+      key: ValueKey('top_expenses_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
+      future: provider.getTopExpenses(limit: 10),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('前十大单笔支出', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                ...snapshot.data!.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final tx = entry.value;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: index < 3 ? [Colors.amber, Colors.grey, Colors.brown][index] : Colors.blue,
+                      child: Text('${index + 1}', style: const TextStyle(color: Colors.white)),
+                    ),
+                    title: Text(tx.description ?? ''),
+                    subtitle: Text(DateFormat('yyyy-MM-dd').format(tx.transactionTime)),
+                    trailing: Text('¥${tx.amount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.red)),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 账户收支对比柱状图
+  Widget _buildAccountIncomeExpenseChart(TransactionProvider provider) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      key: ValueKey('account_income_expense_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
+      future: provider.getAccountIncomeExpenseStats(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final data = snapshot.data!;
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('账户收支对比', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 300,
+                  child: BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      barGroups: data.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final item = entry.value;
+                        return BarChartGroupData(
+                          x: index,
+                          barRods: [
+                            BarChartRodData(toY: (item['total_income'] as num).toDouble(), color: Colors.green, width: 15),
+                            BarChartRodData(toY: (item['total_expense'] as num).toDouble(), color: Colors.red, width: 15),
+                          ],
+                        );
+                      }).toList(),
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              if (value.toInt() >= data.length) return const Text('');
+                              return Text(data[value.toInt()]['account_name'], style: const TextStyle(fontSize: 10));
+                            },
+                          ),
+                        ),
+                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(width: 12, height: 12, color: Colors.green),
+                    const SizedBox(width: 4),
+                    const Text('收入', style: TextStyle(fontSize: 12)),
+                    const SizedBox(width: 16),
+                    Container(width: 12, height: 12, color: Colors.red),
+                    const SizedBox(width: 4),
+                    const Text('支出', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 支出对方排行
+  Widget _buildCounterpartyRanking(TransactionProvider provider) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      key: ValueKey('counterparty_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
+      future: provider.getCounterpartyRanking(type: 'expense', limit: 10),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final data = snapshot.data!;
+        final total = data.fold<double>(0, (sum, item) => sum + (item['total_amount'] as num).toDouble());
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('支出对方排行', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                ...data.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  final amount = (item['total_amount'] as num).toDouble();
+                  final percentage = (amount / total * 100).toStringAsFixed(1);
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(child: Text('${index + 1}')),
+                    title: Text(item['counterparty'] ?? '未知'),
+                    subtitle: Text('${item['transaction_count']}笔交易'),
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('¥${amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('$percentage%', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 分类支出饼图
+  Widget _buildCategoryPieChart(TransactionProvider provider) {
+    const fallbackColors = [
+      0xFFE57373, 0xFF64B5F6, 0xFF81C784, 0xFFFFD54F, 0xFFBA68C8,
+      0xFF4DD0E1, 0xFFFF8A65, 0xFFA1887F, 0xFF90A4AE, 0xFFAED581,
+    ];
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      key: ValueKey('category_pie_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
+      future: provider.getCategoryExpenseRanking(limit: 10),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final data = snapshot.data!;
+        final total = data.fold<double>(0, (sum, item) => sum + (item['total_amount'] as num).toDouble());
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('分类支出占比', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 250,
+                  child: PieChart(
+                    PieChartData(
+                      sections: data.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final item = entry.value;
+                        final amount = (item['total_amount'] as num).toDouble();
+                        final percentage = amount / total * 100;
+                        final colorValue = item['category_color'];
+                        Color color;
+                        try {
+                          color = colorValue is int
+                            ? Color(colorValue)
+                            : Color(int.parse('0xFF${colorValue?.replaceAll('#', '')}'));
+                        } catch (e) {
+                          color = Color(fallbackColors[index % fallbackColors.length]);
+                        }
+                        return PieChartSectionData(
+                          value: amount,
+                          title: '${percentage.toStringAsFixed(1)}%',
+                          color: color,
+                          radius: 100,
+                          titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                        );
+                      }).toList(),
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 40,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: data.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final colorValue = item['category_color'];
+                    Color color;
+                    try {
+                      color = colorValue is int
+                        ? Color(colorValue)
+                        : Color(int.parse('0xFF${colorValue?.replaceAll('#', '')}'));
+                    } catch (e) {
+                      color = Color(fallbackColors[index % fallbackColors.length]);
+                    }
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(width: 12, height: 12, color: color),
+                        const SizedBox(width: 4),
+                        Text(item['category_name'], style: const TextStyle(fontSize: 12)),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 月度同比环比
+  Widget _buildMonthComparison(TransactionProvider provider) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      key: ValueKey('month_comparison_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
+      future: provider.getMonthlyTrend(type: 'expense'),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.length < 2) {
+          return const SizedBox.shrink();
+        }
+
+        final data = snapshot.data!;
+        final current = data.last;
+        final previous = data[data.length - 2];
+        final currentAmount = (current['total_amount'] as num).toDouble();
+        final previousAmount = (previous['total_amount'] as num).toDouble();
+        final momChange = previousAmount == 0 ? 0 : ((currentAmount - previousAmount) / previousAmount * 100);
+
+        Map<String, dynamic>? yearAgo;
+        double yoyChange = 0;
+        if (data.length >= 13) {
+          yearAgo = data[data.length - 13];
+          final yearAgoAmount = (yearAgo['total_amount'] as num).toDouble();
+          yoyChange = yearAgoAmount == 0 ? 0 : ((currentAmount - yearAgoAmount) / yearAgoAmount * 100);
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('月度对比', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('环比', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${momChange >= 0 ? '+' : ''}${momChange.toStringAsFixed(1)}%',
+                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: momChange >= 0 ? Colors.red : Colors.green),
+                          ),
+                          Text('vs ${previous['month']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    if (yearAgo != null)
+                      Expanded(
+                        child: Column(
+                          children: [
+                            const Text('同比', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${yoyChange >= 0 ? '+' : ''}${yoyChange.toStringAsFixed(1)}%',
+                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: yoyChange >= 0 ? Colors.red : Colors.green),
+                            ),
+                            Text('vs ${yearAgo['month']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

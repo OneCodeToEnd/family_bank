@@ -26,6 +26,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
   final _tagController = TextEditingController();
 
   String _selectedType = 'expense';
+  String? _selectedColor;
   List<String> _tags = [];
   bool _isSubmitting = false;
 
@@ -36,6 +37,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
       // 编辑模式
       _nameController.text = widget.category!.name;
       _selectedType = widget.category!.type;
+      _selectedColor = widget.category!.color;
       _tags = List.from(widget.category!.tags);
     } else if (widget.type != null) {
       // 新建模式，指定了类型
@@ -182,6 +184,46 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
             ),
             const SizedBox(height: 16),
 
+            // 颜色选择
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('颜色', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        '#E57373', '#F06292', '#BA68C8', '#9575CD', '#7986CB',
+                        '#64B5F6', '#4FC3F7', '#4DD0E1', '#4DB6AC', '#81C784',
+                        '#AED581', '#DCE775', '#FFF176', '#FFD54F', '#FFB74D',
+                        '#FF8A65', '#A1887F', '#E0E0E0', '#90A4AE', '#607D8B',
+                      ].map((color) {
+                        final isSelected = _selectedColor == color;
+                        return GestureDetector(
+                          onTap: () => setState(() => _selectedColor = color),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Color(int.parse('0xFF${color.replaceAll('#', '')}')),
+                              shape: BoxShape.circle,
+                              border: isSelected ? Border.all(color: Colors.black, width: 3) : null,
+                            ),
+                            child: isSelected ? const Icon(Icons.check, color: Colors.white) : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // 标签
             Card(
               child: Padding(
@@ -306,6 +348,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
       // 编辑分类
       final updatedCategory = widget.category!.copyWith(
         name: _nameController.text.trim(),
+        color: _selectedColor,
         tags: _tags,
       );
       success = await categoryProvider.updateCategory(updatedCategory);
@@ -315,6 +358,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
         name: _nameController.text.trim(),
         type: widget.parentCategory?.type ?? _selectedType,
         parentId: widget.parentCategory?.id,
+        color: _selectedColor,
         tags: _tags,
       );
     }

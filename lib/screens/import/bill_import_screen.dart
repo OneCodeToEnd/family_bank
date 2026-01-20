@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../providers/account_provider.dart';
 import '../../services/import/bill_import_service.dart';
 import '../../models/transaction.dart' as model;
+import '../../models/account.dart';
 import 'import_confirmation_screen.dart';
 
 /// 账单导入页面
@@ -35,6 +36,28 @@ class _BillImportScreenState extends State<BillImportScreen> {
 
   Future<void> _loadAccounts() async {
     await context.read<AccountProvider>().loadAccounts();
+  }
+
+  /// 更新平台选择
+  void _updatePlatform(String platform) {
+    setState(() {
+      _selectedPlatform = platform;
+      _selectedFilePath = null;
+      _previewTransactions = null;
+
+      // 同步更新账户选择
+      final provider = context.read<AccountProvider>();
+      final accounts = provider.visibleAccounts
+          .where((account) => account.type == platform)
+          .toList();
+
+      // 如果当前选择的账户不在新平台的列表中，或者没有选择账户，选择第一个
+      if (accounts.isNotEmpty &&
+          (_selectedAccountId == null ||
+              !accounts.any((account) => account.id == _selectedAccountId))) {
+        _selectedAccountId = accounts.first.id;
+      }
+    });
   }
 
   @override
@@ -117,11 +140,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
                     selected: _selectedPlatform == 'alipay',
                     onSelected: (selected) {
                       if (selected) {
-                        setState(() {
-                          _selectedPlatform = 'alipay';
-                          _selectedFilePath = null;
-                          _previewTransactions = null;
-                        });
+                        _updatePlatform('alipay');
                       }
                     },
                   ),
@@ -142,11 +161,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
                     selected: _selectedPlatform == 'wechat',
                     onSelected: (selected) {
                       if (selected) {
-                        setState(() {
-                          _selectedPlatform = 'wechat';
-                          _selectedFilePath = null;
-                          _previewTransactions = null;
-                        });
+                        _updatePlatform('wechat');
                       }
                     },
                   ),
@@ -163,7 +178,15 @@ class _BillImportScreenState extends State<BillImportScreen> {
   Widget _buildAccountSelector() {
     return Consumer<AccountProvider>(
       builder: (context, provider, child) {
-        final accounts = provider.visibleAccounts;
+        // 根据选择的平台过滤账户
+        List<Account> accounts;
+        if (_selectedPlatform != null) {
+          accounts = provider.visibleAccounts
+              .where((account) => account.type == _selectedPlatform)
+              .toList();
+        } else {
+          accounts = provider.visibleAccounts;
+        }
 
         if (accounts.isEmpty) {
           return Card(
@@ -171,7 +194,9 @@ class _BillImportScreenState extends State<BillImportScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  const Text('还没有可用的账户'),
+                  Text(_selectedPlatform != null
+                      ? '还没有${_selectedPlatform == 'alipay' ? '支付宝' : '微信'}账户'
+                      : '还没有可用的账户'),
                   const SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
@@ -181,17 +206,6 @@ class _BillImportScreenState extends State<BillImportScreen> {
               ),
             ),
           );
-        }
-
-        // 默认选择第一个
-        if (_selectedAccountId == null && accounts.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              setState(() {
-                _selectedAccountId = accounts.first.id;
-              });
-            }
-          });
         }
 
         return Card(
@@ -204,9 +218,11 @@ class _BillImportScreenState extends State<BillImportScreen> {
                   '2. 选择账户',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                const Text(
-                  '导入的账单将关联到此账户',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                Text(
+                  _selectedPlatform != null
+                      ? '仅显示${_selectedPlatform == 'alipay' ? '支付宝' : '微信'}账户'
+                      : '导入的账单将关联到此账户',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
