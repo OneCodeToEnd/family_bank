@@ -1,0 +1,70 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "LS",
+      "Write(.claude/state/**)",
+      "Edit(.claude/state/**)",
+      "Edit(src/**)",
+      "Bash(git:*)",
+      "Bash(npm:*)",
+      "Bash(yarn:*)",
+      "Bash(pnpm:*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(echo:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(touch:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(date:*)",
+      "Bash(pwd)",
+      "Bash(cd:*)",
+      "Task(phase-router)",
+      "Task(design-manager)",
+      "Task(implementation-executor)",
+      "Task(test-agent)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(./secrets/**)",
+      "Read(./config/credentials.json)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(./secrets/**)",
+      "Bash(rm -rf /)",
+      "Bash(sudo:*)",
+      "Bash(chmod 777:*)"
+    ],
+  
+    "defaultMode": "default"
+  },
+
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Awaiting your input\" with title \"Claude Code\"'"
+          }
+        ]
+      }
+    ]
+  },
+ "attribution": {
+    "commit": "🤖 Generated with Claude Code",
+    "pr": "This PR was created with assistance from Claude Code"
+  },
+  "respectGitignore": true
+}

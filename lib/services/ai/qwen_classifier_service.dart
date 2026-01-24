@@ -8,6 +8,7 @@ import '../../models/ai_provider.dart';
 import '../../models/ai_classification_config.dart';
 import '../http/logging_http_client.dart';
 import 'ai_classifier_service.dart';
+import 'model_list_parser.dart';
 import '../../utils/app_logger.dart';
 class QwenClassifierService implements AIClassifierService {
   static const String _chatUrl =
@@ -53,25 +54,30 @@ class QwenClassifierService implements AIClassifierService {
           .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final models = (data['data'] as List)
-            .map((m) => AIModel(
-                  id: m['model_id'] as String? ?? m['id'] as String,
-                  name: m['model_name'] as String? ?? m['id'] as String,
-                  description: m['description'] as String?,
-                ))
-            .toList();
+        final models = ModelListParser.parseModelList(
+          response.bodyBytes,
+          modelFilter: ModelListParser.isQwenModel,
+        );
 
-        // 过滤出 qwen 系列对话模型
-        return models
-            .where((m) => m.id.toLowerCase().startsWith('qwen'))
-            .toList();
+        if (models != null && models.isNotEmpty) {
+          AppLogger.i('Fetched ${models.length} Qwen models from API');
+          return models;
+        }
+
+        AppLogger.w('No Qwen models found in API response');
+      } else {
+        AppLogger.w('Qwen API returned status ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
       AppLogger.e('Failed to fetch Qwen models: $e');
     }
 
     // 返回默认模型列表作为后备
+    AppLogger.i('Using default Qwen model list');
+    return _getDefaultModels();
+  }
+
+  List<AIModel> _getDefaultModels() {
     return [
       AIModel(
         id: 'qwen-turbo',

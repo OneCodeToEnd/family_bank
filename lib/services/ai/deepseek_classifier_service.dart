@@ -9,6 +9,7 @@ import '../../models/ai_classification_config.dart';
 import '../http/logging_http_client.dart';
 import '../../utils/app_logger.dart';
 import 'ai_classifier_service.dart';
+import 'model_list_parser.dart';
 
 class DeepSeekClassifierService implements AIClassifierService {
   static const String _baseUrl = 'https://api.deepseek.com';
@@ -51,25 +52,30 @@ class DeepSeekClassifierService implements AIClassifierService {
           .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final models = (data['data'] as List)
-            .map((m) => AIModel(
-                  id: m['id'] as String,
-                  name: m['id'] as String,
-                  description: m['description'] as String?,
-                ))
-            .toList();
+        final models = ModelListParser.parseModelList(
+          response.bodyBytes,
+          modelFilter: ModelListParser.isChatModel,
+        );
 
-        // 过滤出适合对话的模型（通常包含 'chat' 关键词）
-        return models
-            .where((m) => m.id.contains('chat') || m.id.contains('turbo'))
-            .toList();
+        if (models != null && models.isNotEmpty) {
+          AppLogger.i('Fetched ${models.length} DeepSeek models from API');
+          return models;
+        }
+
+        AppLogger.w('No chat models found in API response');
+      } else {
+        AppLogger.w('DeepSeek API returned status ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
       AppLogger.w('Failed to fetch DeepSeek models', error: e);
     }
 
     // 返回默认模型列表作为后备
+    AppLogger.i('Using default DeepSeek model list');
+    return _getDefaultModels();
+  }
+
+  List<AIModel> _getDefaultModels() {
     return [
       AIModel(
         id: 'deepseek-chat',
