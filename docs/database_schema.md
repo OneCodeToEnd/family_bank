@@ -351,5 +351,45 @@ budgets ----< categories/accounts (target_type + target_id)
 
 http_logs (独立表，记录HTTP调用日志)
 
+email_configs (独立表，存储邮箱配置)
+
 app_settings (独立表，键值对存储)
+```
+
+## 版本历史
+
+### V5.0 (2026-01-20)
+**新增表**: email_configs
+
+**功能**: 邮箱账单同步
+- 支持通过IMAP协议连接邮箱
+- 自动搜索支付宝/微信的账单邮件
+- 下载并解压账单附件
+- 密码加密存储
+
+### 9. 邮箱配置表 (email_configs) - V5.0新增
+管理邮箱账单同步配置
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | 主键 |
+| email | TEXT | NOT NULL UNIQUE | 邮箱地址 |
+| imap_server | TEXT | NOT NULL | IMAP服务器地址 |
+| imap_port | INTEGER | NOT NULL | IMAP端口(通常为993) |
+| password | TEXT | NOT NULL | 邮箱密码/授权码(AES加密存储) |
+| is_enabled | INTEGER | DEFAULT 1 | 是否启用(0:否, 1:是) |
+| created_at | INTEGER | NOT NULL | 创建时间(时间戳) |
+| updated_at | INTEGER | NOT NULL | 更新时间(时间戳) |
+
+**说明:**
+- 密码使用AES加密存储，通过EncryptionService加密/解密
+- 支持的邮箱：QQ、163、126、Gmail、Outlook等
+- 需要开启IMAP服务并使用授权码（部分邮箱）
+- 用于自动从邮箱下载支付宝/微信的账单附件
+
+**安全性:**
+- 密码加密存储，不以明文形式保存
+- 只读取特定发件人的邮件（支付宝/微信官方）
+- 不修改邮箱内容
+- 临时文件导入后自动清理
 ```

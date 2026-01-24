@@ -195,6 +195,20 @@ class DatabaseService {
       )
     ''');
 
+    // 创建邮箱配置表 (V5新增)
+    await db.execute('''
+      CREATE TABLE ${DbConstants.tableEmailConfigs} (
+        ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL UNIQUE,
+        imap_server TEXT NOT NULL,
+        imap_port INTEGER NOT NULL,
+        password TEXT NOT NULL,
+        is_enabled INTEGER DEFAULT 1,
+        ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
+        ${DbConstants.columnUpdatedAt} INTEGER NOT NULL
+      )
+    ''');
+
     // 创建索引
     await _createIndexes(db);
 
@@ -395,6 +409,22 @@ class DatabaseService {
       await db.execute('''
         CREATE INDEX idx_http_log_status
         ON ${DbConstants.tableHttpLogs}(${DbConstants.columnLogStatusCode})
+      ''');
+    }
+
+    // V5升级：添加邮箱配置表
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE ${DbConstants.tableEmailConfigs} (
+          ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
+          email TEXT NOT NULL UNIQUE,
+          imap_server TEXT NOT NULL,
+          imap_port INTEGER NOT NULL,
+          password TEXT NOT NULL,
+          is_enabled INTEGER DEFAULT 1,
+          ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
+          ${DbConstants.columnUpdatedAt} INTEGER NOT NULL
+        )
       ''');
     }
   }

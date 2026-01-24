@@ -10,6 +10,9 @@ import '../../services/database/database_service.dart';
 import '../member/member_list_screen.dart';
 import 'ai_settings_screen.dart';
 import '../category/category_rule_list_screen.dart';
+import 'email_config_screen.dart';
+import '../import/email_bill_select_screen.dart';
+import '../../services/database/email_config_db_service.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -80,6 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               // 数据管理
               _buildSectionHeader('数据管理'),
+              _buildEmailSyncTile(),
               _buildDataStatsTile(),
               _buildClearDataTile(),
 
@@ -436,6 +440,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         );
+      },
+    );
+  }
+
+  /// 邮箱账单同步
+  Widget _buildEmailSyncTile() {
+    return ListTile(
+      leading: const Icon(Icons.email),
+      title: const Text('邮箱账单同步'),
+      subtitle: const Text('从邮箱自动导入账单'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () async {
+        final dbService = EmailConfigDbService();
+        final hasConfig = await dbService.hasConfig();
+
+        if (!mounted) return;
+
+        if (hasConfig) {
+          // 已配置，直接进入邮件选择页面
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const EmailBillSelectScreen(),
+            ),
+          );
+        } else {
+          // 未配置，先进入配置页面
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const EmailConfigScreen(),
+            ),
+          );
+
+          // 配置成功后，进入邮件选择页面
+          if (result == true && mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const EmailBillSelectScreen(),
+              ),
+            );
+          }
+        }
       },
     );
   }
