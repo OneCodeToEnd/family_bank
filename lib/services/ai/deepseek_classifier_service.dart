@@ -11,7 +11,8 @@ import '../../utils/app_logger.dart';
 import 'ai_classifier_service.dart';
 import 'model_list_parser.dart';
 
-class DeepSeekClassifierService implements AIClassifierService {
+class DeepSeekClassifierService with AIClassifierServiceMixin
+    implements AIClassifierService {
   static const String _baseUrl = 'https://api.deepseek.com';
 
   final String apiKey;
@@ -262,44 +263,8 @@ class DeepSeekClassifierService implements AIClassifierService {
     String fileContent,
     String fileType,
   ) {
-    final systemPrompt = '''You are a financial data analyst. Extract summary statistics from bill files.
-Your task is to analyze the file header/summary section and extract key statistics.
-Return ONLY a valid JSON object with the required fields. Do not include any explanation or additional text.''';
-
-    final userPrompt = '''Extract bill summary from the following ${fileType} file header:
-
-$fileContent
-
-Please analyze the file and extract the following information:
-1. Total number of transactions
-2. Number of income transactions
-3. Number of expense transactions
-4. Total income amount
-5. Total expense amount
-
-IMPORTANT:
-- Only count valid transaction records
-- Ignore header rows, footer rows, and summary rows
-- For Alipay CSV: Look for summary information in the header section (first 24 lines)
-- For WeChat XLSX: Look for summary information in the header section (first 17 lines)
-- The header often contains total statistics like "交易笔数", "收入笔数", "支出笔数", "收入金额", "支出金额"
-
-Return ONLY a JSON object with this exact structure (use English keys):
-{
-  "totalCount": <number>,
-  "incomeCount": <number>,
-  "expenseCount": <number>,
-  "totalIncome": <number>,
-  "totalExpense": <number>,
-  "netAmount": <number>
-}
-
-Do not include any explanation or additional text. Return only the JSON object.''';
-
-    return [
-      {'role': 'system', 'content': systemPrompt},
-      {'role': 'user', 'content': userPrompt},
-    ];
+    // 使用父类的共享方法
+    return buildSummaryExtractionMessages(fileContent, fileType);
   }
 
   Map<String, dynamic> _parseSummaryResponse(Map<String, dynamic> response) {

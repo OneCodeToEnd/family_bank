@@ -41,3 +41,60 @@ abstract class AIClassifierService {
   /// 当前使用的模型
   String get currentModel;
 }
+
+/// AI 分类服务的共享功能 mixin
+///
+/// 提供通用的提示词构建方法，避免代码重复
+mixin AIClassifierServiceMixin {
+  /// 构建账单摘要提取的消息（共享方法）
+  ///
+  /// 子类可以直接使用此方法构建标准的摘要提取提示词
+  List<Map<String, String>> buildSummaryExtractionMessages(
+    String fileContent,
+    String fileType,
+  ) {
+    final systemPrompt = '''You are a financial data analyst. Extract summary statistics from bill files.
+Your task is to analyze the file header/summary section and extract key statistics.
+Return ONLY a valid JSON object with the required fields. Do not include any explanation or additional text.''';
+
+    final userPrompt = '''Extract bill summary from the following $fileType file header:
+
+$fileContent
+
+Please analyze the file and extract the following information:
+1. Total number of transactions (income + expense only)
+2. Number of income transactions
+3. Number of expense transactions
+4. Total income amount
+5. Total expense amount
+
+IMPORTANT:
+- Only count valid transaction records that are either income or expense
+- EXCLUDE the following transaction types from totalCount:
+  * "不计收支" (not counted in income/expense)
+  * "中性交易" (neutral transactions)
+  * Any transactions that are neither income nor expense
+- Ignore header rows, footer rows, and summary rows
+- For Alipay CSV: Look for summary information in the header section (first 24 lines)
+- For WeChat XLSX: Look for summary information in the header section (first 17 lines)
+- The header often contains total statistics like "交易笔数", "收入笔数", "支出笔数", "收入金额", "支出金额"
+- totalCount should equal incomeCount + expenseCount (excluding neutral/non-counted transactions)
+
+Return ONLY a JSON object with this exact structure (use English keys):
+{
+  "totalCount": <number>,
+  "incomeCount": <number>,
+  "expenseCount": <number>,
+  "totalIncome": <number>,
+  "totalExpense": <number>,
+  "netAmount": <number>
+}
+
+Do not include any explanation or additional text. Return only the JSON object.''';
+
+    return [
+      {'role': 'system', 'content': systemPrompt},
+      {'role': 'user', 'content': userPrompt},
+    ];
+  }
+}
