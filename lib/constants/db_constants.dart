@@ -2,7 +2,7 @@
 class DbConstants {
   // 数据库信息
   static const String dbName = 'family_bank.db';
-  static const int dbVersion = 5;
+  static const int dbVersion = 6;
 
   // 表名
   static const String tableFamilyGroups = 'family_groups';
@@ -15,6 +15,7 @@ class DbConstants {
   static const String tableAppSettings = 'app_settings';
   static const String tableHttpLogs = 'http_logs';
   static const String tableEmailConfigs = 'email_configs';
+  static const String tableAIModels = 'ai_models';
 
   // 通用字段
   static const String columnId = 'id';

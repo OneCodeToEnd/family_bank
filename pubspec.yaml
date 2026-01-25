@@ -157,12 +157,15 @@ flutter_launcher_icons:
   android: true
   ios: true
 
-  # 主图标路径 (1024x1024 PNG, 透明背景)
+  # 移除 iOS 图标的透明通道（App Store 要求）
+  remove_alpha_ios: true
+
+  # 主图标路径 (1024x1024 PNG)
   image_path: "assets/icon/app_icon.png"
 
-  # Android 自适应图标配置
+  # Android 自适应图标配置（使用主图标作为前景）
   adaptive_icon_background: "#3498DB"  # 青蓝色背景
-  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
 
   # macOS 图标配置
   macos:

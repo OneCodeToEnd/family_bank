@@ -1,12 +1,20 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 import 'package:charset/charset.dart';
 import '../../models/transaction.dart' as model;
+import '../../models/import_result.dart';
+import '../../models/bill_file_type.dart';
+import '../bill_validation_service.dart';
 
 /// 账单导入服务
 class BillImportService {
+  final BillValidationService? _validationService;
+
+  BillImportService({BillValidationService? validationService})
+      : _validationService = validationService;
   /// 导入支付宝 CSV 账单
   Future<List<model.Transaction>> importAlipayCSV(
     File file,
@@ -52,10 +60,10 @@ class BillImportService {
             continue;
           }
 
-          // 跳过非成功状态
-          if (status != '支付成功' && status != '交易成功' && status != '还款成功') {
-            continue;
-          }
+          // // 跳过非成功状态
+          // if (status != '支付成功' && status != '交易成功' && status != '还款成功') {
+          //   continue;
+          // }
 
           // 解析时间
           final transactionTime = _parseDateTime(timeStr);
@@ -63,15 +71,15 @@ class BillImportService {
 
           // 解析金额
           final amount = double.tryParse(amountStr);
-          if (amount == null || amount <= 0) continue;
+          if (amount == null) continue;
 
           // 确定类型
           final type = incomeExpense == '收入' ? 'income' : 'expense';
 
           // 组合描述（不再包含交易对方，交易对方单独存储）
           final fullDescription = description.isNotEmpty
-                    ? '$typeCategory - $description'
-                    : typeCategory;
+                    ? '$typeCategory - $description - $status'
+                    : '$typeCategory - $status';
 
           transactions.add(model.Transaction(
             accountId: defaultAccountId,
@@ -141,10 +149,10 @@ class BillImportService {
             continue;
           }
 
-          // 跳过非成功状态
-          if (status != '支付成功' && status != '已转账' && status != '已存入零钱' && status != '对方已收钱') {
-            continue;
-          }
+          // // 跳过非成功状态
+          // if (status != '支付成功' && status != '已转账' && status != '已存入零钱' && status != '对方已收钱' && status != '对方已退还') {
+          //   continue;
+          // }
 
           // 解析时间
           final transactionTime = _parseDateTime(timeStr);
@@ -153,15 +161,15 @@ class BillImportService {
           // 解析金额（移除 ¥ 符号）
           var cleanAmount = amountStr.replaceAll('¥', '').replaceAll(',', '').trim();
           final amount = double.tryParse(cleanAmount);
-          if (amount == null || amount <= 0) continue;
+          if (amount == null) continue;
 
           // 确定类型
           final type = incomeExpense == '收入' ? 'income' : 'expense';
 
           // 组合描述（不再包含交易对方，交易对方单独存储）
           final fullDescription = product.isNotEmpty
-              ? '$transactionType - $product'
-              : transactionType;
+              ? '$transactionType - $product - $status'
+              : '$transactionType - $status';
 
           transactions.add(model.Transaction(
             accountId: defaultAccountId,
@@ -219,6 +227,114 @@ class BillImportService {
       } catch (e2) {
         return String.fromCharCodes(bytes);
       }
+    }
+  }
+
+  /// 导入支付宝 CSV 账单（带验证）
+  ///
+  /// 返回 ImportResult，包含交易列表和验证结果
+  Future<ImportResult> importAlipayCSVWithValidation(
+    File file,
+    int defaultAccountId,
+  ) async {
+    try {
+      // 1. 读取文件字节
+      final bytes = await file.readAsBytes();
+      final fileName = file.path.split('/').last;
+
+      // 2. 解析交易
+      final transactions = await importAlipayCSV(file, defaultAccountId);
+
+      // 3. 如果有验证服务，执行验证
+      if (_validationService != null) {
+        final fileType = BillFileType.alipayCSV;
+
+        // 提取文件摘要
+        final fileSummary = await _validationService.extractSummaryFromFile(
+          Uint8List.fromList(bytes),
+          fileName,
+          fileType,
+        );
+
+        // 计算交易摘要
+        final calculatedSummary = _validationService.calculateSummaryFromTransactions(
+          transactions,
+        );
+
+        // 验证
+        final validationResult = _validationService.validateImport(
+          fileSummary,
+          calculatedSummary,
+        );
+
+        return ImportResult.withValidation(
+          transactions: transactions,
+          validationResult: validationResult,
+          source: 'alipay',
+        );
+      }
+
+      // 没有验证服务，返回不带验证的结果
+      return ImportResult.withoutValidation(
+        transactions: transactions,
+        source: 'alipay',
+      );
+    } catch (e) {
+      throw Exception('导入支付宝账单失败: $e');
+    }
+  }
+
+  /// 导入微信 XLSX 账单（带验证）
+  ///
+  /// 返回 ImportResult，包含交易列表和验证结果
+  Future<ImportResult> importWeChatExcelWithValidation(
+    File file,
+    int defaultAccountId,
+  ) async {
+    try {
+      // 1. 读取文件字节
+      final bytes = await file.readAsBytes();
+      final fileName = file.path.split('/').last;
+
+      // 2. 解析交易
+      final transactions = await importWeChatExcel(file, defaultAccountId);
+
+      // 3. 如果有验证服务，执行验证
+      if (_validationService != null) {
+        final fileType = BillFileType.wechatXLSX;
+
+        // 提取文件摘要
+        final fileSummary = await _validationService.extractSummaryFromFile(
+          Uint8List.fromList(bytes),
+          fileName,
+          fileType,
+        );
+
+        // 计算交易摘要
+        final calculatedSummary = _validationService.calculateSummaryFromTransactions(
+          transactions,
+        );
+
+        // 验证
+        final validationResult = _validationService.validateImport(
+          fileSummary,
+          calculatedSummary,
+        );
+
+        return ImportResult.withValidation(
+          transactions: transactions,
+          validationResult: validationResult,
+          source: 'wechat',
+        );
+      }
+
+      // 没有验证服务，返回不带验证的结果
+      return ImportResult.withoutValidation(
+        transactions: transactions,
+        source: 'wechat',
+      );
+    } catch (e) {
+      throw Exception('导入微信账单失败: $e');
     }
   }
 }

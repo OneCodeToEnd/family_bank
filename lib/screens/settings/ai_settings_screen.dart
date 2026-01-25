@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import '../../models/ai_classification_config.dart';
 import '../../models/ai_model.dart';
 import '../../models/ai_provider.dart';
+import '../../models/ai_model_config.dart';
+import '../../constants/ai_model_constants.dart';
 import '../../services/ai/ai_config_service.dart';
 import '../../services/ai/ai_classifier_factory.dart';
+import '../../services/ai_model_config_service.dart';
 import 'ai_prompt_edit_screen.dart';
+import 'ai_model_management_screen.dart';
 
 /// AI分类设置界面
 class AISettingsScreen extends StatefulWidget {
@@ -16,6 +20,7 @@ class AISettingsScreen extends StatefulWidget {
 
 class _AISettingsScreenState extends State<AISettingsScreen> {
   final AIConfigService _configService = AIConfigService();
+  final AIModelConfigService _modelConfigService = AIModelConfigService();
   AIClassificationConfig? _config;
   List<AIModel>? _availableModels;
   bool _loading = true;
@@ -131,6 +136,8 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
             _buildProviderSelection(),
             const SizedBox(height: 16),
             _buildApiKeyInput(),
+            const SizedBox(height: 8),
+            _buildLoadSavedModelButton(),
             const SizedBox(height: 16),
             _buildModelSelection(),
             const SizedBox(height: 16),
@@ -142,6 +149,8 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
             _buildAutoLearnSwitch(),
             const Divider(height: 32),
             _buildPromptConfigButton(),
+            const SizedBox(height: 16),
+            _buildModelManagementButton(),
             if (_availableModels != null &&
                 _config!.modelId.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -251,6 +260,17 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildLoadSavedModelButton() {
+    return OutlinedButton.icon(
+      onPressed: _loadSavedModel,
+      icon: const Icon(Icons.folder_open, size: 18),
+      label: const Text('从已保存的模型中选择'),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 40),
+      ),
     );
   }
 
@@ -399,6 +419,15 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       subtitle: const Text('自定义 AI 分类的提示词'),
       trailing: const Icon(Icons.chevron_right),
       onTap: _editPrompts,
+    );
+  }
+
+  Widget _buildModelManagementButton() {
+    return ListTile(
+      title: const Text('模型管理'),
+      subtitle: const Text('管理自定义 AI 模型配置'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: _navigateToModelManagement,
     );
   }
 
@@ -664,6 +693,120 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       setState(() {
         _config = result;
       });
+    }
+  }
+
+  Future<void> _navigateToModelManagement() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AIModelManagementScreen(),
+      ),
+    );
+  }
+
+  Future<void> _loadSavedModel() async {
+    try {
+      final savedModels = await _modelConfigService.getAllModels();
+
+      if (savedModels.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('暂无已保存的模型，请先在模型管理中添加')),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+
+      final selected = await showDialog<AIModelConfig>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('选择已保存的模型'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: savedModels.length,
+              itemBuilder: (context, index) {
+                final model = savedModels[index];
+                return ListTile(
+                  title: Text(model.name),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('提供商: ${AIModelConstants.getProviderDisplayName(model.provider)}'),
+                      Text('模型: ${model.modelName}'),
+                      if (model.baseUrl != null) Text('端点: ${model.baseUrl}'),
+                      if (model.isActive)
+                        const Text(
+                          '当前激活',
+                          style: TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.pop(context, model),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+          ],
+        ),
+      );
+
+      if (selected != null) {
+        // 应用选中的模型配置
+        // 根据 provider 字符串映射到 AIProvider 枚举
+        AIProvider? provider;
+        switch (selected.provider.toLowerCase()) {
+          case 'deepseek':
+            provider = AIProvider.deepseek;
+            break;
+          case 'qwen':
+            provider = AIProvider.qwen;
+            break;
+          default:
+            provider = null;
+        }
+
+        if (provider != null) {
+          // 解密 API Key
+          final decryptedApiKey = _modelConfigService.getDecryptedApiKey(selected);
+
+          setState(() {
+            _config = _config!.copyWith(
+              provider: provider,
+              modelId: selected.modelName,
+            );
+            _apiKeyController.text = decryptedApiKey;
+            _availableModels = null;
+            _testResult = null;
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('已加载模型: ${selected.name}')),
+            );
+          }
+        } else {
+          if (mounted) {
+            _showError('不支持的提供商: ${selected.provider}');
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('加载已保存的模型失败: $e');
+      }
     }
   }
 }

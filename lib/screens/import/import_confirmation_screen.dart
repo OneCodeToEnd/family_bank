@@ -2,20 +2,24 @@ import 'package:flutter/material.dart';
 import '../../models/transaction.dart';
 import '../../models/category.dart';
 import '../../models/category_match_result.dart';
+import '../../models/import_result.dart';
 import '../../services/category/batch_classification_service.dart';
 import '../../services/category/category_learning_service.dart';
 import '../../services/database/transaction_db_service.dart';
 import '../../services/database/database_service.dart';
+import '../../widgets/validation/validation_summary_card.dart';
 
 /// 导入确认界面
 /// 显示导入的交易和自动匹配的分类结果
 class ImportConfirmationScreen extends StatefulWidget {
-  final List<Transaction> transactions;
+  final List<Transaction>? transactions;
+  final ImportResult? importResult;
 
   const ImportConfirmationScreen({
-    Key? key,
-    required this.transactions,
-  }) : super(key: key);
+    super.key,
+    this.transactions,
+    this.importResult,
+  });
 
   @override
   State<ImportConfirmationScreen> createState() => _ImportConfirmationScreenState();
@@ -34,6 +38,17 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
   int _totalProgress = 0;
   String _progressStatus = '';
 
+  // 获取交易列表
+  List<Transaction> get _transactions {
+    if (widget.importResult != null) {
+      return widget.importResult!.transactions;
+    }
+    return widget.transactions ?? [];
+  }
+
+  // 获取验证结果
+  ImportResult? get _importResult => widget.importResult;
+
   @override
   void initState() {
     super.initState();
@@ -51,7 +66,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
 
       // 批量分类
       final result = await _classificationService.classifyBatch(
-        widget.transactions,
+        _transactions,
         onProgress: (current, total, status) {
           if (mounted) {
             setState(() {
@@ -182,7 +197,17 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
       return const Center(child: Text('加载失败'));
     }
 
-    return _buildTransactionList();
+    return Column(
+      children: [
+        // 显示验证结果（如果有）
+        if (_importResult?.validationResult != null)
+          ValidationSummaryCard(
+            validationResult: _importResult!.validationResult!,
+          ),
+        // 交易列表
+        Expanded(child: _buildTransactionList()),
+      ],
+    );
   }
 
   Widget _buildProcessingView() {
@@ -194,7 +219,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
           const SizedBox(height: 16),
           Text(_progressStatus),
           if (_totalProgress > 0)
-            Text('${_currentProgress}/${_totalProgress}'),
+            Text('$_currentProgress/$_totalProgress'),
         ],
       ),
     );
@@ -202,9 +227,9 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
 
   Widget _buildTransactionList() {
     return ListView.builder(
-      itemCount: widget.transactions.length,
+      itemCount: _transactions.length,
       itemBuilder: (context, index) {
-        final transaction = widget.transactions[index];
+        final transaction = _transactions[index];
         final matchResult = _matchResults![index];
 
         return _TransactionMatchCard(
@@ -250,8 +275,8 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
       List<Transaction> transactionsToSave = [];
 
       // 批量处理交易和分类
-      for (var i = 0; i < widget.transactions.length; i++) {
-        final transaction = widget.transactions[i];
+      for (var i = 0; i < _transactions.length; i++) {
+        final transaction = _transactions[i];
         final matchResult = _matchResults![i];
 
         if (matchResult?.categoryId != null) {

@@ -5,8 +5,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import '../../providers/account_provider.dart';
 import '../../services/import/bill_import_service.dart';
-import '../../models/transaction.dart' as model;
+import '../../services/bill_validation_service.dart';
+import '../../services/ai/ai_classifier_factory.dart';
+import '../../services/ai/ai_config_service.dart';
 import '../../models/account.dart';
+import '../../models/import_result.dart';
 import 'import_confirmation_screen.dart';
 
 /// 账单导入页面
@@ -18,20 +21,48 @@ class BillImportScreen extends StatefulWidget {
 }
 
 class _BillImportScreenState extends State<BillImportScreen> {
-  final _importService = BillImportService();
+  late final BillImportService _importService;
+  late final BillValidationService _validationService;
 
   String? _selectedFilePath;
   String? _selectedPlatform; // alipay, wechat
   int? _selectedAccountId;
   bool _isImporting = false;
-  List<model.Transaction>? _previewTransactions;
+  ImportResult? _importResult;
 
   @override
   void initState() {
     super.initState();
+    // 初始化服务（异步）
+    _initServices();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAccounts();
     });
+  }
+
+  /// 初始化服务
+  Future<void> _initServices() async {
+    try {
+      // 加载 AI 配置
+      final aiConfigService = AIConfigService();
+      final aiConfig = await aiConfigService.loadConfig();
+
+      // 创建 AI 分类服务
+      final aiClassifierService = AIClassifierFactory.create(
+        aiConfig.provider,
+        aiConfig.apiKey,
+        aiConfig.modelId,
+        aiConfig,
+      );
+
+      // 创建验证服务
+      _validationService = BillValidationService(aiClassifierService);
+      _importService = BillImportService(validationService: _validationService);
+    } catch (e) {
+      // 如果初始化失败，创建不带验证的导入服务
+      _importService = BillImportService();
+    }
   }
 
   Future<void> _loadAccounts() async {
@@ -43,7 +74,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
     setState(() {
       _selectedPlatform = platform;
       _selectedFilePath = null;
-      _previewTransactions = null;
+      _importResult = null;
 
       // 同步更新账户选择
       final provider = context.read<AccountProvider>();
@@ -86,10 +117,10 @@ class _BillImportScreenState extends State<BillImportScreen> {
           const SizedBox(height: 16),
 
           // 预览区域
-          if (_previewTransactions != null) _buildPreview(),
+          if (_importResult != null) _buildPreview(),
 
           // 导入按钮
-          if (_previewTransactions != null) ...[
+          if (_importResult != null) ...[
             const SizedBox(height: 16),
             SizedBox(
               height: 48,
@@ -101,7 +132,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text('确认导入 ${_previewTransactions!.length} 笔账单'),
+                    : Text('确认导入 ${_importResult!.transactions.length} 笔账单'),
               ),
             ),
           ],
@@ -279,7 +310,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
               TextButton.icon(
                 onPressed: _parseFile,
                 icon: const Icon(Icons.preview),
-                label: const Text('解析预览'),
+                label: const Text('解析并验证'),
               ),
             ],
           ],
@@ -333,6 +364,8 @@ class _BillImportScreenState extends State<BillImportScreen> {
 
   /// 预览区域
   Widget _buildPreview() {
+    final transactions = _importResult!.transactions;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -347,7 +380,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
                 ),
                 const Spacer(),
                 Text(
-                  '共 ${_previewTransactions!.length} 笔',
+                  '共 ${transactions.length} 笔',
                   style: const TextStyle(color: Colors.blue),
                 ),
               ],
@@ -356,10 +389,10 @@ class _BillImportScreenState extends State<BillImportScreen> {
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: _previewTransactions!.take(10).length,
+              itemCount: transactions.take(10).length,
               separatorBuilder: (context, index) => const Divider(),
               itemBuilder: (context, index) {
-                final transaction = _previewTransactions![index];
+                final transaction = transactions[index];
                 final isIncome = transaction.type == 'income';
 
                 return ListTile(
@@ -383,11 +416,11 @@ class _BillImportScreenState extends State<BillImportScreen> {
                 );
               },
             ),
-            if (_previewTransactions!.length > 10) ...[
+            if (transactions.length > 10) ...[
               const SizedBox(height: 8),
               Center(
                 child: Text(
-                  '... 还有 ${_previewTransactions!.length - 10} 笔未显示',
+                  '... 还有 ${transactions.length - 10} 笔未显示',
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ),
@@ -409,7 +442,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
       if (result != null && result.files.single.path != null) {
         setState(() {
           _selectedFilePath = result.files.single.path;
-          _previewTransactions = null;
+          _importResult = null;
         });
       }
     } catch (e) {
@@ -434,23 +467,43 @@ class _BillImportScreenState extends State<BillImportScreen> {
 
     try {
       final file = File(_selectedFilePath!);
-      List<model.Transaction> transactions;
+      ImportResult importResult;
 
       if (_selectedPlatform == 'alipay') {
-        transactions = await _importService.importAlipayCSV(file, _selectedAccountId!);
+        importResult = await _importService.importAlipayCSVWithValidation(
+          file,
+          _selectedAccountId!,
+        );
       } else {
-        transactions = await _importService.importWeChatExcel(file, _selectedAccountId!);
+        importResult = await _importService.importWeChatExcelWithValidation(
+          file,
+          _selectedAccountId!,
+        );
       }
 
       setState(() {
-        _previewTransactions = transactions;
+        _importResult = importResult;
         _isImporting = false;
       });
 
       if (mounted) {
+        // 显示解析结果和验证状态
+        String message = '解析成功，共 ${importResult.transactions.length} 笔账单';
+        if (importResult.validationResult != null) {
+          final validation = importResult.validationResult!;
+          if (validation.isValid) {
+            message += '\n✓ 验证通过';
+          } else {
+            message += '\n⚠ 发现 ${validation.issues.length} 个问题';
+          }
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('解析成功，共 ${transactions.length} 笔账单'),
+            content: Text(message),
+            backgroundColor: importResult.validationResult?.isValid == false
+                ? Colors.orange
+                : Colors.green,
           ),
         );
       }
@@ -472,7 +525,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
 
   /// 导入账单
   Future<void> _handleImport() async {
-    if (_previewTransactions == null || _previewTransactions!.isEmpty) return;
+    if (_importResult == null || _importResult!.transactions.isEmpty) return;
 
     setState(() {
       _isImporting = true;
@@ -486,7 +539,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => ImportConfirmationScreen(
-            transactions: _previewTransactions!,
+            importResult: _importResult!,
           ),
         ),
       );

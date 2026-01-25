@@ -188,9 +188,14 @@ class BatchClassificationService {
             _cachedCategories != null &&
             (result.categoryId == null || result.confidence < 0.7)) {
           try {
+            // 根据交易类型过滤分类列表
+            final filteredCategories = _cachedCategories!
+                .where((c) => c.type == transaction.type)
+                .toList();
+
             final aiResult = await _aiService!.classify(
               transaction,
-              _cachedCategories!,
+              filteredCategories,
             );
 
             if (aiResult != null && aiResult.confidence > result.confidence) {

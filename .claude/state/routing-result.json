@@ -1,0 +1,135 @@
+{
+  "requirement_id": "REQ-001",
+  "task_type": "feature",
+  "complexity": "high",
+  "description": "账单导入准确率校验 - 使用AI提取文件统计信息并与导入结果对比验证",
+  "related_services": [
+    "BillImportService",
+    "EmailService",
+    "AIClassifierService",
+    "ImportConfirmationScreen"
+  ],
+  "context_files": [
+    "lib/services/import/bill_import_service.dart",
+    "lib/services/import/email_service.dart",
+    "lib/services/ai/ai_classifier_service.dart",
+    "lib/screens/import/import_confirmation_screen.dart",
+    "lib/screens/import/bill_import_screen.dart",
+    "lib/screens/import/email_bill_select_screen.dart",
+    "context/tech/services/family_bank.md"
+  ],
+  "execution_plan": [
+    {
+      "phase": "design",
+      "agent": "design-manager",
+      "tasks": [
+        "设计统一的账单统计信息提取接口（支持支付宝CSV、微信XLSX）",
+        "设计AI提示词模板，用于从文件头部信息提取统计数据",
+        "设计校验规则和阈值（容差范围、警告级别）",
+        "设计可复用的验证服务架构（BillValidationService）",
+        "设计用户提示信息的展示方式（警告、建议、错误）",
+        "评估AI调用成本和性能影响",
+        "设计数据模型（BillSummary、ValidationResult）"
+      ],
+      "deliverables": [
+        "架构设计文档",
+        "接口定义文档",
+        "AI提示词设计",
+        "校验规则配置方案",
+        "数据模型设计"
+      ]
+    },
+    {
+      "phase": "implement",
+      "agent": "implementation-executor",
+      "tasks": [
+        "创建 BillSummary 数据模型（交易笔数、收支金额等）",
+        "创建 ValidationResult 数据模型（验证结果、差异信息）",
+        "创建 BillValidationService 服务类",
+        "实现文件头部信息提取功能（支付宝/微信格式解析）",
+        "集成 AI 服务进行统计信息抽取",
+        "实现导入账单的统计计算逻辑",
+        "实现对比校验逻辑（交易笔数、收支金额等）",
+        "在 BillImportService 中集成验证功能",
+        "在 EmailService 导入流程中集成验证功能",
+        "在 ImportConfirmationScreen 中显示验证结果",
+        "添加配置项（是否启用验证、容差阈值等）"
+      ],
+      "deliverables": [
+        "BillSummary 模型",
+        "ValidationResult 模型",
+        "BillValidationService 实现",
+        "集成到现有导入流程",
+        "UI 更新（显示验证结果）"
+      ]
+    },
+    {
+      "phase": "test",
+      "agent": "test-agent",
+      "tasks": [
+        "准备测试数据（支付宝CSV、微信XLSX样本）",
+        "单元测试：文件头部信息提取",
+        "单元测试：AI统计信息抽取",
+        "单元测试：导入账单统计计算",
+        "单元测试：对比校验逻辑",
+        "集成测试：完整导入流程验证",
+        "集成测试：邮件导入流程验证",
+        "边界测试：数据不匹配场景",
+        "性能测试：AI调用耗时",
+        "用户验收测试：UI提示信息"
+      ],
+      "deliverables": [
+        "单元测试用例",
+        "集成测试用例",
+        "测试报告",
+        "性能评估报告"
+      ]
+    }
+  ],
+  "risks": [
+    "AI提取准确率问题 - 不同银行格式差异大，可能提取失败",
+    "AI调用成本 - 每次导入都调用AI会增加成本",
+    "性能影响 - AI调用可能导致导入预览变慢",
+    "文件格式变化 - 支付宝/微信可能更新导出格式",
+    "容差阈值设置 - 过严会误报，过松会漏报",
+    "CSV前24行的统计信息格式可能不稳定"
+  ],
+  "dependencies": [
+    "AIClassifierService 需要支持结构化数据提取",
+    "BillImportService 需要暴露统计计算接口",
+    "EmailService 需要支持验证钩子",
+    "ImportConfirmationScreen 需要展示验证结果",
+    "SettingsProvider 需要支持验证规则配置"
+  ],
+  "technical_considerations": {
+    "ai_integration": {
+      "prompt_design": "需要设计精确的提示词，确保AI能准确提取数字信息",
+      "error_handling": "AI调用失败时的降级策略（跳过验证或使用规则验证）",
+      "caching": "考虑缓存相同文件的AI提取结果"
+    },
+    "validation_strategy": {
+      "tolerance": "设置合理的容差范围（如±0.01元，±1笔）",
+      "severity_levels": "区分错误、警告、提示三个级别",
+      "bypass_option": "允许用户忽略警告继续导入"
+    },
+    "reusability": {
+      "service_design": "BillValidationService 作为独立服务，可被多个导入流程复用",
+      "interface_abstraction": "定义统一的验证接口，支持扩展新的导入源"
+    },
+    "flutter_specific": {
+      "state_management": "使用Provider管理验证状态",
+      "ui_feedback": "使用Dialog或SnackBar显示验证结果",
+      "async_handling": "使用FutureBuilder处理异步验证"
+    }
+  },
+  "estimated_effort": {
+    "design": "2-3 天",
+    "implementation": "4-5 天",
+    "testing": "2-3 天",
+    "total": "8-11 天"
+  },
+  "priority": "high",
+  "status": "routed",
+  "routed_at": "2026-01-24T11:40:00Z",
+  "next_action": "路由到 design-manager 进行架构设计"
+}

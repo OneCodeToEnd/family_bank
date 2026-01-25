@@ -6,7 +6,10 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:http/http.dart' as http;
 import '../../models/email_config.dart';
 import '../../models/bill_email_item.dart';
+import '../../models/import_result.dart';
+import '../../models/bill_file_type.dart';
 import '../../utils/app_logger.dart';
+import 'bill_import_service.dart';
 
 /// 邮箱服务
 ///
@@ -15,6 +18,10 @@ import '../../utils/app_logger.dart';
 class EmailService {
   ImapClient? _imapClient;
   bool _isConnected = false;
+  final BillImportService? _billImportService;
+
+  EmailService({BillImportService? billImportService})
+      : _billImportService = billImportService;
 
   /// 支付宝官方邮箱地址
   static const String alipayEmail = 'service@mail.alipay.com';
@@ -538,6 +545,74 @@ class EmailService {
     } catch (e) {
       AppLogger.e('[EmailService] 下载文件失败', error: e);
       throw Exception('下载文件失败: $e');
+    }
+  }
+
+  /// 处理邮件附件并导入（带验证）
+  ///
+  /// [messageId] 邮件ID
+  /// [attachmentName] 附件名称
+  /// [defaultAccountId] 默认账户ID
+  ///
+  /// 返回 ImportResult，包含交易列表和验证结果
+  Future<ImportResult> processAttachmentWithValidation(
+    String messageId,
+    String attachmentName,
+    int defaultAccountId,
+  ) async {
+    if (_billImportService == null) {
+      throw Exception('BillImportService 未初始化');
+    }
+
+    try {
+      AppLogger.i('[EmailService] 开始处理邮件附件: $attachmentName');
+
+      // 1. 下载附件
+      final file = await downloadAttachment(messageId, attachmentName);
+      AppLogger.d('[EmailService] 附件已下载: ${file.path}');
+
+      // 2. 检测文件类型
+      final fileType = BillFileTypeExtension.fromFileName(attachmentName);
+      AppLogger.d('[EmailService] 文件类型: $fileType');
+
+      // 3. 根据文件类型调用相应的导入方法
+      ImportResult result;
+      switch (fileType) {
+        case BillFileType.alipayCSV:
+          AppLogger.d('[EmailService] 使用支付宝导入方法');
+          result = await _billImportService.importAlipayCSVWithValidation(
+            file,
+            defaultAccountId,
+          );
+          break;
+
+        case BillFileType.wechatXLSX:
+          AppLogger.d('[EmailService] 使用微信导入方法');
+          result = await _billImportService.importWeChatExcelWithValidation(
+            file,
+            defaultAccountId,
+          );
+          break;
+
+        default:
+          AppLogger.w('[EmailService] 不支持的文件类型: $fileType');
+          throw Exception('不支持的文件类型: $attachmentName');
+      }
+
+      AppLogger.i('[EmailService] 附件处理完成，导入 ${result.successCount} 笔交易');
+
+      // 4. 清理临时文件
+      try {
+        await file.delete();
+        AppLogger.d('[EmailService] 临时文件已删除');
+      } catch (e) {
+        AppLogger.w('[EmailService] 删除临时文件失败', error: e);
+      }
+
+      return result;
+    } catch (e) {
+      AppLogger.e('[EmailService] 处理附件失败', error: e);
+      rethrow;
     }
   }
 }

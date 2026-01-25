@@ -1,0 +1,185 @@
+{
+  "id": "REQ-001",
+  "title": "Bill Import Accuracy Validation Feature",
+  "description": "Add validation functionality to verify bill import accuracy by comparing file summary (extracted via LLM) with calculated statistics from parsed transactions. Support both manual file imports and email-imported files with reusable validation service.",
+  "phase": "completed",
+  "status": "completed",
+  "priority": "medium",
+  "created_at": "2026-01-24T11:40:00Z",
+  "updated_at": "2026-01-24T21:00:00Z",
+  "branch": "feature/req-001-bill-import-validation",
+  "design_doc": ".claude/state/requirements/REQ-001-design.md",
+  "test_report": null,
+  "related_services": [
+    "BillValidationService",
+    "BillImportService",
+    "EmailService",
+    "AIClassifierService",
+    "ImportConfirmationScreen"
+  ],
+  "context_files": [
+    "lib/services/import/bill_import_service.dart",
+    "lib/services/import/email_service.dart",
+    "lib/services/ai/ai_classifier_service.dart",
+    "lib/screens/import/import_confirmation_screen.dart",
+    "context/tech/services/family_bank.md",
+    "context/tech/services/bill-validation-service.md",
+    ".claude/state/requirements/REQ-001-design.md"
+  ],
+  "pitfalls_checked": [
+    "context/experience/json-file-encoding-issue.md"
+  ],
+  "history": [
+    {
+      "phase": "created",
+      "status": "completed",
+      "timestamp": "2026-01-24T11:40:00Z",
+      "note": "Requirement created",
+      "agent": "system"
+    },
+    {
+      "phase": "routing",
+      "status": "started",
+      "timestamp": "2026-01-24T11:40:00Z",
+      "note": "Task routing started",
+      "agent": "phase-router"
+    },
+    {
+      "phase": "routing",
+      "status": "completed",
+      "timestamp": "2026-01-24T11:40:00Z",
+      "note": "Task routing completed, identified 4 related services",
+      "agent": "phase-router"
+    },
+    {
+      "phase": "context_loading",
+      "status": "completed",
+      "timestamp": "2026-01-24T11:40:00Z",
+      "note": "Loaded 5 context files, found 1 historical pitfall",
+      "agent": "system"
+    },
+    {
+      "phase": "designing",
+      "status": "started",
+      "timestamp": "2026-01-24T11:40:00Z",
+      "note": "Technical design started",
+      "agent": "design-manager"
+    },
+    {
+      "phase": "designing",
+      "status": "completed",
+      "timestamp": "2026-01-24T12:00:00Z",
+      "note": "Technical design completed. Created comprehensive design document with 6 implementation phases, 3 new models, 1 new service, and integration points for existing services.",
+      "agent": "design-manager"
+    },
+    {
+      "phase": "implementing",
+      "status": "started",
+      "timestamp": "2026-01-24T19:00:00Z",
+      "note": "Implementation started - Phase 1",
+      "agent": "implementation-executor"
+    },
+    {
+      "phase": "implementing",
+      "status": "in_progress",
+      "timestamp": "2026-01-24T19:30:00Z",
+      "note": "Phase 1 completed: Created 3 models (BillSummary, ValidationResult, BillFileType), BillValidationService with calculateSummaryFromTransactions method, and 16 passing unit tests.",
+      "agent": "implementation-executor"
+    },
+    {
+      "phase": "implementing",
+      "status": "in_progress",
+      "timestamp": "2026-01-24T20:00:00Z",
+      "note": "Phase 2-3 completed: Implemented LLM integration (extractSummaryFromFile) and validation logic (validateImport). Added extractBillSummary to QwenClassifierService and DeepSeekClassifierService. All 22 unit tests passing.",
+      "agent": "implementation-executor"
+    },
+    {
+      "phase": "implementing",
+      "status": "in_progress",
+      "timestamp": "2026-01-24T20:30:00Z",
+      "note": "Phase 4 completed: Integrated validation into BillImportService and EmailService. Created ImportResult model. Added importAlipayCSVWithValidation, importWeChatExcelWithValidation, and processAttachmentWithValidation methods.",
+      "agent": "implementation-executor"
+    },
+    {
+      "phase": "implementing",
+      "status": "in_progress",
+      "timestamp": "2026-01-24T20:45:00Z",
+      "note": "Phase 5 completed: Created ValidationSummaryCard widget (280 lines) with color-coded status display, comparison table, issues list, and suggestions. Modified ImportConfirmationScreen to accept ImportResult and display validation results.",
+      "agent": "implementation-executor"
+    },
+    {
+      "phase": "implementing",
+      "status": "completed",
+      "timestamp": "2026-01-24T21:00:00Z",
+      "note": "Phase 6 completed: Fixed all code quality issues (16 issues in new code). Ran flutter analyze (8 remaining issues are in pre-existing files). All 22 unit tests passing. Implementation complete.",
+      "agent": "implementation-executor"
+    }
+  ],
+  "tasks": [
+    {
+      "phase": "implementing",
+      "name": "Phase 1: Core Models and Service",
+      "status": "completed",
+      "files": [
+        "lib/models/bill_summary.dart",
+        "lib/models/validation_result.dart",
+        "lib/models/bill_file_type.dart",
+        "lib/services/bill_validation_service.dart",
+        "test/services/bill_validation_service_test.dart"
+      ]
+    },
+    {
+      "phase": "implementing",
+      "name": "Phase 2: LLM Integration",
+      "status": "completed",
+      "files": [
+        "lib/services/ai/ai_classifier_service.dart",
+        "lib/services/ai/qwen_classifier_service.dart",
+        "lib/services/ai/deepseek_classifier_service.dart",
+        "lib/services/bill_validation_service.dart",
+        "lib/constants/bill_file_constants.dart"
+      ]
+    },
+    {
+      "phase": "implementing",
+      "name": "Phase 3: Validation Logic",
+      "status": "completed",
+      "files": [
+        "lib/services/bill_validation_service.dart",
+        "test/services/bill_validation_service_test.dart"
+      ]
+    },
+    {
+      "phase": "implementing",
+      "name": "Phase 4: Service Integration",
+      "status": "completed",
+      "files": [
+        "lib/models/import_result.dart",
+        "lib/services/import/bill_import_service.dart",
+        "lib/services/import/email_service.dart"
+      ]
+    },
+    {
+      "phase": "implementing",
+      "name": "Phase 5: UI Implementation",
+      "status": "completed",
+      "files": [
+        "lib/screens/import/import_confirmation_screen.dart",
+        "lib/widgets/validation/validation_summary_card.dart"
+      ]
+    },
+    {
+      "phase": "implementing",
+      "name": "Phase 6: Testing and Refinement",
+      "status": "completed",
+      "files": [
+        "test/services/bill_validation_service_test.dart"
+      ]
+    }
+  ],
+  "metadata": {
+    "creator": "user",
+    "source": "/req-dev command",
+    "design_agent_id": "f7e6821a"
+  }
+}

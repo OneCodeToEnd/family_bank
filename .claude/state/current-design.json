@@ -1,0 +1,238 @@
+{
+  "requirement_id": "REQ-002",
+  "feature_name": "ai-model-config-persistence",
+  "design_doc_path": "context/tech/designs/REQ-002-ai-model-config-persistence.md",
+  "status": "ready_for_implementation",
+  "created_at": "2026-01-24T14:10:00Z",
+  "updated_at": "2026-01-24T14:15:00Z",
+  "key_decisions": [
+    "Use SQLite database for all configuration storage (metadata + encrypted API keys)",
+    "Use existing EncryptionService for API key encryption (same as email passwords)",
+    "Store encrypted API keys directly in ai_models table",
+    "Follow EmailConfigDbService pattern for consistency",
+    "Implement automatic migration from legacy SharedPreferences configuration",
+    "Use UUID for model configuration IDs",
+    "Support three provider types: DeepSeek, Qwen, and Custom",
+    "Add indexes on provider and is_default columns for query performance"
+  ],
+  "implementation_tasks": [
+    {
+      "id": 1,
+      "phase": "foundation",
+      "description": "Add uuid dependency",
+      "priority": "high",
+      "estimated_effort": "10min",
+      "status": "pending",
+      "dependencies": []
+    },
+    {
+      "id": 2,
+      "phase": "foundation",
+      "description": "Create ai_models table schema with encrypted api_key column",
+      "priority": "high",
+      "estimated_effort": "1h",
+      "status": "pending",
+      "dependencies": [1]
+    },
+    {
+      "id": 3,
+      "phase": "foundation",
+      "description": "Create AIModelConfig data model with database serialization",
+      "priority": "high",
+      "estimated_effort": "1h",
+      "status": "pending",
+      "dependencies": [2]
+    },
+    {
+      "id": 4,
+      "phase": "foundation",
+      "description": "Create AIModelConstants for storage keys and presets",
+      "priority": "high",
+      "estimated_effort": "30min",
+      "status": "pending",
+      "dependencies": [3]
+    },
+    {
+      "id": 5,
+      "phase": "core_service",
+      "description": "Create AIModelDbService following EmailConfigDbService pattern",
+      "priority": "high",
+      "estimated_effort": "2h",
+      "status": "pending",
+      "dependencies": [2, 3]
+    },
+    {
+      "id": 6,
+      "phase": "core_service",
+      "description": "Implement AIModelConfigService with business logic",
+      "priority": "high",
+      "estimated_effort": "2h",
+      "status": "pending",
+      "dependencies": [5]
+    },
+    {
+      "id": 7,
+      "phase": "core_service",
+      "description": "Implement configuration migration from SharedPreferences",
+      "priority": "high",
+      "estimated_effort": "1h",
+      "status": "pending",
+      "dependencies": [6]
+    },
+    {
+      "id": 8,
+      "phase": "core_service",
+      "description": "Update import_confirmation_screen to use AIModelConfigService",
+      "priority": "high",
+      "estimated_effort": "2h",
+      "status": "pending",
+      "dependencies": [6]
+    },
+    {
+      "id": 9,
+      "phase": "ui",
+      "description": "Create AIModelManagementScreen for model list display",
+      "priority": "medium",
+      "estimated_effort": "2h",
+      "status": "pending",
+      "dependencies": [6]
+    },
+    {
+      "id": 10,
+      "phase": "ui",
+      "description": "Create AIModelDialog for add/edit model form",
+      "priority": "medium",
+      "estimated_effort": "2h",
+      "status": "pending",
+      "dependencies": [9]
+    },
+    {
+      "id": 11,
+      "phase": "ui",
+      "description": "Add navigation to model management from settings",
+      "priority": "medium",
+      "estimated_effort": "30min",
+      "status": "pending",
+      "dependencies": [9]
+    },
+    {
+      "id": 12,
+      "phase": "testing",
+      "description": "Write unit tests for data models and database operations",
+      "priority": "medium",
+      "estimated_effort": "2h",
+      "status": "pending",
+      "dependencies": [6]
+    },
+    {
+      "id": 13,
+      "phase": "testing",
+      "description": "Write integration tests for migration and model selection",
+      "priority": "medium",
+      "estimated_effort": "2h",
+      "status": "pending",
+      "dependencies": [7, 8]
+    },
+    {
+      "id": 14,
+      "phase": "testing",
+      "description": "Write UI tests for model management flow",
+      "priority": "low",
+      "estimated_effort": "1h",
+      "status": "pending",
+      "dependencies": [10]
+    }
+  ],
+  "related_services": [
+    "ai_classifier_service",
+    "deepseek_classifier_service",
+    "qwen_classifier_service",
+    "database_service",
+    "encryption_service"
+  ],
+  "pitfalls_addressed": [
+    {
+      "pitfall": "JSON file encoding issues with Chinese characters",
+      "mitigation": "Using SQLite database eliminates JSON encoding issues, Chinese characters handled natively"
+    },
+    {
+      "pitfall": "API key security",
+      "mitigation": "Use existing EncryptionService with AES encryption, same pattern as email passwords"
+    },
+    {
+      "pitfall": "Configuration migration failure",
+      "mitigation": "Validate before migration, backup legacy config, use database transactions"
+    }
+  ],
+  "risks": [
+    {
+      "description": "API key security vulnerability",
+      "probability": "low",
+      "impact": "high",
+      "mitigation": "Use existing EncryptionService with AES encryption, proven in email config storage"
+    },
+    {
+      "description": "Configuration migration data loss",
+      "probability": "low",
+      "impact": "high",
+      "mitigation": "Use database transactions, validate before migration, keep backup"
+    },
+    {
+      "description": "Database schema migration issues",
+      "probability": "low",
+      "impact": "medium",
+      "mitigation": "Test migration thoroughly, use proper version control"
+    },
+    {
+      "description": "Model API compatibility issues",
+      "probability": "medium",
+      "impact": "medium",
+      "mitigation": "Design flexible config structure, support custom parameters"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "uuid",
+      "version": "^4.0.0",
+      "reason": "Generate unique IDs for model configurations",
+      "status": "to_be_added"
+    },
+    {
+      "name": "sqflite",
+      "version": "^2.3.2",
+      "reason": "SQLite database for configuration storage",
+      "status": "already_exists"
+    },
+    {
+      "name": "EncryptionService",
+      "version": "N/A",
+      "reason": "Existing service for API key encryption",
+      "status": "already_exists"
+    }
+  ],
+  "database_changes": {
+    "new_tables": [
+      {
+        "name": "ai_models",
+        "columns": [
+          "id TEXT PRIMARY KEY",
+          "name TEXT NOT NULL",
+          "provider TEXT NOT NULL",
+          "model_id TEXT NOT NULL",
+          "api_endpoint TEXT NOT NULL",
+          "api_key TEXT NOT NULL",
+          "is_default INTEGER DEFAULT 0",
+          "created_at INTEGER NOT NULL",
+          "last_used_at INTEGER"
+        ],
+        "indexes": [
+          "idx_ai_models_provider ON ai_models(provider)",
+          "idx_ai_models_is_default ON ai_models(is_default)"
+        ],
+        "constraints": [
+          "UNIQUE(name)"
+        ]
+      }
+    ]
+  }
+}

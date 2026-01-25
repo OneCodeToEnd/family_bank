@@ -24,6 +24,17 @@ abstract class AIClassifierService {
   /// 测试 API 连接
   Future<bool> testConnection();
 
+  /// 提取账单摘要信息（用于验证导入准确性）
+  ///
+  /// 从文件内容中提取汇总统计信息
+  /// [fileContent] 文件内容（文本格式）
+  /// [fileType] 文件类型（alipay/wechat）
+  /// 返回包含统计信息的 JSON 对象
+  Future<Map<String, dynamic>> extractBillSummary(
+    String fileContent,
+    String fileType,
+  );
+
   /// 获取提供商信息
   AIProvider get provider;
 

@@ -1,0 +1,85 @@
+{
+  "id": "REQ-002",
+  "title": "AI分类设置支持自定义模型配置持久化",
+  "description": "AI分类设置中需要允许用户自己添加模型，并存储到配置里面去，下次可以复用这个选项。并且如果之前配置的是 DeepSeek 应该也进行存储。避免下次选择重新输入 key。",
+  "status": "in_progress",
+  "phase": "implementing",
+  "priority": "medium",
+  "created_at": "2026-01-24T14:06:07Z",
+  "updated_at": "2026-01-24T14:40:00Z",
+  "branch": "feature/req-002-ai-model-config-persistence",
+  "design_doc": "context/tech/designs/REQ-002-ai-model-config-persistence.md",
+  "test_report": null,
+  "related_services": [
+    "ai_classifier_service",
+    "deepseek_classifier_service",
+    "qwen_classifier_service",
+    "config_storage_service"
+  ],
+  "context_files": [
+    "lib/services/ai/ai_classifier_service.dart",
+    "lib/services/ai/deepseek_classifier_service.dart",
+    "lib/services/ai/qwen_classifier_service.dart",
+    "lib/screens/import/import_confirmation_screen.dart"
+  ],
+  "pitfalls_checked": [
+    "context/experience/json-file-encoding-issue.md"
+  ],
+  "history": [
+    {
+      "phase": "created",
+      "status": "completed",
+      "timestamp": "2026-01-24T14:06:07Z",
+      "note": "需求创建",
+      "agent": "system"
+    },
+    {
+      "phase": "routing",
+      "status": "started",
+      "timestamp": "2026-01-24T14:06:07Z",
+      "note": "开始任务路由",
+      "agent": "phase-router"
+    },
+    {
+      "phase": "routing",
+      "status": "completed",
+      "timestamp": "2026-01-24T14:08:00Z",
+      "note": "任务路由完成，识别到 4 个相关服务",
+      "agent": "phase-router"
+    },
+    {
+      "phase": "context_loading",
+      "status": "completed",
+      "timestamp": "2026-01-24T14:10:00Z",
+      "note": "加载了 4 个上下文文件，发现 1 个历史坑点",
+      "agent": "system"
+    },
+    {
+      "phase": "designing",
+      "status": "started",
+      "timestamp": "2026-01-24T14:10:00Z",
+      "note": "开始技术方案设计",
+      "agent": "design-manager"
+    },
+    {
+      "phase": "designing",
+      "status": "completed",
+      "timestamp": "2026-01-24T14:20:00Z",
+      "note": "技术方案设计完成，包含 14 个实现任务",
+      "agent": "design-manager",
+      "artifacts": ["context/tech/designs/REQ-002-ai-model-config-persistence.md"]
+    },
+    {
+      "phase": "implementing",
+      "status": "started",
+      "timestamp": "2026-01-24T14:25:00Z",
+      "note": "开始代码实现",
+      "agent": "implementation-executor"
+    }
+  ],
+  "tasks": [],
+  "metadata": {
+    "creator": "user",
+    "source": "/req-dev command"
+  }
+}

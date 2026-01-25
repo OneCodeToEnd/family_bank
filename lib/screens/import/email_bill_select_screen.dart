@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../models/bill_email_item.dart';
+import '../../models/import_result.dart';
 import '../../services/database/email_config_db_service.dart';
 import '../../services/import/email_service.dart';
 import '../../services/import/unzip_service.dart';
 import '../../services/import/bill_import_service.dart';
-import '../../models/transaction.dart' as model;
+import '../../services/bill_validation_service.dart';
+import '../../services/ai/ai_classifier_factory.dart';
+import '../../services/ai/ai_config_service.dart';
 import 'import_confirmation_screen.dart';
 import '../settings/email_config_screen.dart';
 
@@ -20,9 +23,9 @@ class EmailBillSelectScreen extends StatefulWidget {
 }
 
 class _EmailBillSelectScreenState extends State<EmailBillSelectScreen> {
-  final _emailService = EmailService();
+  late final EmailService _emailService;
   final _unzipService = UnzipService();
-  final _billImportService = BillImportService();
+  late BillImportService _billImportService;
   final _dbService = EmailConfigDbService();
 
   List<BillEmailItem> _emails = [];
@@ -33,7 +36,34 @@ class _EmailBillSelectScreenState extends State<EmailBillSelectScreen> {
   @override
   void initState() {
     super.initState();
+    _initServices();
     _searchEmails();
+  }
+
+  /// 初始化服务
+  Future<void> _initServices() async {
+    try {
+      // 加载 AI 配置
+      final aiConfigService = AIConfigService();
+      final aiConfig = await aiConfigService.loadConfig();
+
+      // 创建 AI 分类服务
+      final aiClassifierService = AIClassifierFactory.create(
+        aiConfig.provider,
+        aiConfig.apiKey,
+        aiConfig.modelId,
+        aiConfig,
+      );
+
+      // 创建验证服务
+      final validationService = BillValidationService(aiClassifierService);
+      _billImportService = BillImportService(validationService: validationService);
+      _emailService = EmailService(billImportService: _billImportService);
+    } catch (e) {
+      // 如果初始化失败，创建不带验证的导入服务
+      _billImportService = BillImportService();
+      _emailService = EmailService(billImportService: _billImportService);
+    }
   }
 
   @override
@@ -103,7 +133,7 @@ class _EmailBillSelectScreenState extends State<EmailBillSelectScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final allTransactions = <model.Transaction>[];
+      ImportResult? combinedResult;
       final tempDir = await getTemporaryDirectory();
       final workDir = Directory('${tempDir.path}/bill_import');
 
@@ -134,15 +164,24 @@ class _EmailBillSelectScreenState extends State<EmailBillSelectScreen> {
 
         // 解析账单
         for (final file in files) {
-          final transactions = await _parseFile(file, email.platform);
-          allTransactions.addAll(transactions);
+          final result = await _parseFileWithValidation(file, email.platform);
+          if (combinedResult == null) {
+            combinedResult = result;
+          } else {
+            // 合并结果（只保留最后一个验证结果）
+            combinedResult = ImportResult(
+              transactions: [...combinedResult.transactions, ...result.transactions],
+              validationResult: result.validationResult,
+              source: combinedResult.source,
+            );
+          }
         }
       }
 
       // 清理临时文件
       await _unzipService.cleanupTempFiles(workDir.path);
 
-      if (mounted) {
+      if (mounted && combinedResult != null) {
         setState(() => _isProcessing = false);
 
         // 跳转到确认页面
@@ -150,7 +189,7 @@ class _EmailBillSelectScreenState extends State<EmailBillSelectScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => ImportConfirmationScreen(
-              transactions: allTransactions,
+              importResult: combinedResult!,
             ),
           ),
         );
@@ -172,15 +211,15 @@ class _EmailBillSelectScreenState extends State<EmailBillSelectScreen> {
     }
   }
 
-  /// 解析文件
-  Future<List<model.Transaction>> _parseFile(File file, String platform) async {
+  /// 解析文件（带验证）
+  Future<ImportResult> _parseFileWithValidation(File file, String platform) async {
     final extension = file.path.split('.').last.toLowerCase();
 
     if (extension == 'csv' && platform == 'alipay') {
-      return await _billImportService.importAlipayCSV(file, 1);
+      return await _billImportService.importAlipayCSVWithValidation(file, 1);
     } else if ((extension == 'xlsx' || extension == 'xls') &&
         platform == 'wechat') {
-      return await _billImportService.importWeChatExcel(file, 1);
+      return await _billImportService.importWeChatExcelWithValidation(file, 1);
     }
 
     throw Exception('不支持的文件格式: $extension');

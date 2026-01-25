@@ -209,6 +209,22 @@ class DatabaseService {
       )
     ''');
 
+    // 创建AI模型配置表 (V6新增)
+    await db.execute('''
+      CREATE TABLE ${DbConstants.tableAIModels} (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        model_name TEXT NOT NULL,
+        encrypted_api_key TEXT NOT NULL,
+        base_url TEXT,
+        is_active INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(provider, model_name)
+      )
+    ''');
+
     // 创建索引
     await _createIndexes(db);
 
@@ -425,6 +441,35 @@ class DatabaseService {
           ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
           ${DbConstants.columnUpdatedAt} INTEGER NOT NULL
         )
+      ''');
+    }
+
+    // V6升级：添加AI模型配置表
+    if (oldVersion < 6) {
+      await db.execute('''
+        CREATE TABLE ${DbConstants.tableAIModels} (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          provider TEXT NOT NULL,
+          model_name TEXT NOT NULL,
+          encrypted_api_key TEXT NOT NULL,
+          base_url TEXT,
+          is_active INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          UNIQUE(provider, model_name)
+        )
+      ''');
+
+      // 创建索引
+      await db.execute('''
+        CREATE INDEX idx_ai_models_provider
+        ON ${DbConstants.tableAIModels}(provider)
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_ai_models_is_active
+        ON ${DbConstants.tableAIModels}(is_active)
       ''');
     }
   }

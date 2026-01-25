@@ -1,0 +1,94 @@
+{
+  "requirement_id": "REQ-002",
+  "task_type": "feature",
+  "complexity": "medium",
+  "title": "AI分类设置中支持用户自定义模型配置并持久化存储",
+  "description": "允许用户添加自定义AI模型配置，包括模型名称、API Key等信息，并持久化存储以便复用。同时需要迁移现有DeepSeek配置到新的存储机制。",
+  "related_services": [
+    "ai_classifier_service",
+    "deepseek_classifier_service",
+    "qwen_classifier_service",
+    "config_storage_service"
+  ],
+  "context_files": [
+    "lib/services/ai/ai_classifier_service.dart",
+    "lib/services/ai/deepseek_classifier_service.dart",
+    "lib/services/ai/qwen_classifier_service.dart",
+    "lib/screens/import/import_confirmation_screen.dart"
+  ],
+  "execution_plan": [
+    {
+      "phase": "design",
+      "agent": "design-manager",
+      "tasks": [
+        "设计AI模型配置数据结构（ModelConfig类）",
+        "设计配置存储服务接口（ConfigStorageService）",
+        "设计UI交互流程（添加/编辑/删除模型配置）",
+        "设计配置迁移策略（从现有DeepSeek配置迁移）",
+        "评审数据安全性（API Key加密存储方案）"
+      ]
+    },
+    {
+      "phase": "implement",
+      "agent": "implementation-executor",
+      "tasks": [
+        "创建ModelConfig数据模型类",
+        "实现ConfigStorageService（基于shared_preferences）",
+        "实现API Key加密/解密逻辑（使用flutter_secure_storage）",
+        "修改AI分类设置UI，添加自定义模型管理界面",
+        "实现模型配置的CRUD操作",
+        "实现配置迁移逻辑（首次启动时迁移现有配置）",
+        "更新AIClassifierService以支持动态模型列表",
+        "更新import_confirmation_screen.dart中的模型选择逻辑"
+      ]
+    },
+    {
+      "phase": "test",
+      "agent": "test-agent",
+      "tasks": [
+        "单元测试：ModelConfig序列化/反序列化",
+        "单元测试：ConfigStorageService CRUD操作",
+        "单元测试：API Key加密/解密",
+        "集成测试：配置迁移流程",
+        "集成测试：模型配置与AI分类服务集成",
+        "UI测试：添加/编辑/删除模型配置流程",
+        "验收测试：完整的用户使用场景"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "risk": "API Key安全性问题",
+      "mitigation": "使用flutter_secure_storage进行加密存储",
+      "priority": "high"
+    },
+    {
+      "risk": "配置迁移失败导致用户数据丢失",
+      "mitigation": "实现配置备份机制，迁移前先备份现有配置",
+      "priority": "high"
+    },
+    {
+      "risk": "不同AI模型API接口差异导致兼容性问题",
+      "mitigation": "设计灵活的配置结构，支持不同模型的参数配置",
+      "priority": "medium"
+    }
+  ],
+  "dependencies": [
+    {
+      "type": "package",
+      "name": "shared_preferences",
+      "status": "已存在"
+    },
+    {
+      "type": "package",
+      "name": "flutter_secure_storage",
+      "status": "需添加"
+    }
+  ],
+  "priority": "high",
+  "status": "routed",
+  "target_agent": "design-manager",
+  "routed_at": "2026-01-24T14:06:07Z",
+  "created_at": "2026-01-24T14:06:07Z",
+  "updated_at": "2026-01-24T14:06:07Z"
+}

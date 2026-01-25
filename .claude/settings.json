@@ -5,6 +5,7 @@
       "Grep",
       "Glob",
       "LS",
+      "Edit(/Users/xiedi/data/rh/code/family_bank/**)",
       "Write(.claude/state/**)",
       "Edit(.claude/state/**)",
       "Edit(src/**)",
@@ -45,11 +46,62 @@
       "Bash(sudo:*)",
       "Bash(chmod 777:*)"
     ],
-  
+    "additionalDirectories": [
+      "./context",
+      "/Users/xiedi/data/rh/code/family_bank"
+    ],
     "defaultMode": "default"
   },
-
+  "env": {
+    "CONTEXT_DIR": "context",
+    "STATE_DIR": ".claude/state",
+    "WORKSPACE_DIR": "/Users/xiedi/data/rh/code/family_bank"
+  },
   "hooks": {
+      "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -d 'context/experience' ] && [ \"$(ls -A context/experience 2>/dev/null)\" ]; then echo '⚠️ 提醒：请检查 context/experience/ 中的相关经验'; fi"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$(date '+%Y-%m-%d %H:%M:%S') - File modified: $CLAUDE_TOOL_ARG_FILE_PATH\" >> .claude/state/changes.log"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f '.claude/state/current-task.json' ]; then echo '📋 当前任务状态已保存到 .claude/state/'; fi"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$(date '+%Y-%m-%d %H:%M:%S') - Subagent completed\" >> .claude/state/subagent.log 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "matcher": "",
