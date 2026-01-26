@@ -238,7 +238,7 @@ class QwenClassifierService with AIClassifierServiceMixin
       // 尝试提取 JSON（通义千问可能会在 JSON 前后添加说明文字）
       final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(content);
       if (jsonMatch == null) {
-        AppLogger.w('No JSON found in Qwen response');
+        AppLogger.w('No JSON found in Qwen response. Full response content: $content');
         return null;
       }
 
@@ -330,7 +330,7 @@ class QwenClassifierService with AIClassifierServiceMixin
       // 尝试提取 JSON 对象
       final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(jsonStr);
       if (jsonMatch == null) {
-        AppLogger.w('No JSON found in Qwen summary response: $content');
+        AppLogger.w('No JSON found in Qwen summary response. Full response content: $content');
         throw Exception('No valid JSON found in response');
       }
 

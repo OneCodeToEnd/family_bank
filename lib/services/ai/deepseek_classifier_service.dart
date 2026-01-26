@@ -207,7 +207,15 @@ class DeepSeekClassifierService with AIClassifierServiceMixin
   CategoryMatchResult? _parseResponse(Map<String, dynamic> response) {
     try {
       final content = response['choices'][0]['message']['content'] as String;
-      final data = jsonDecode(content) as Map<String, dynamic>;
+
+      // 尝试提取 JSON（DeepSeek 可能会在 JSON 前后添加说明文字）
+      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(content);
+      if (jsonMatch == null) {
+        AppLogger.w('No JSON found in DeepSeek response. Full response content: $content');
+        return null;
+      }
+
+      final data = jsonDecode(jsonMatch.group(0)!) as Map<String, dynamic>;
 
       return CategoryMatchResult(
         categoryId: data['categoryId'] as int,
@@ -286,7 +294,7 @@ class DeepSeekClassifierService with AIClassifierServiceMixin
       // 尝试提取 JSON 对象
       final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(jsonStr);
       if (jsonMatch == null) {
-        AppLogger.w('No JSON found in DeepSeek summary response: $content');
+        AppLogger.w('No JSON found in DeepSeek summary response. Full response content: $content');
         throw Exception('No valid JSON found in response');
       }
 
