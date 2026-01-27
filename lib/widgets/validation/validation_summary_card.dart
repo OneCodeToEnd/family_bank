@@ -4,7 +4,7 @@ import '../../models/validation_result.dart';
 /// 验证摘要卡片
 ///
 /// 显示账单导入验证的总体结果
-class ValidationSummaryCard extends StatelessWidget {
+class ValidationSummaryCard extends StatefulWidget {
   final ValidationResult validationResult;
 
   const ValidationSummaryCard({
@@ -13,36 +13,67 @@ class ValidationSummaryCard extends StatelessWidget {
   });
 
   @override
+  State<ValidationSummaryCard> createState() => _ValidationSummaryCardState();
+}
+
+class _ValidationSummaryCardState extends State<ValidationSummaryCard> {
+  bool _isExpanded = true;
+
+  @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.all(16),
       elevation: 4,
       color: _getBackgroundColor(),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 12),
-            _buildComparisonTable(),
-            if (validationResult.issues.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              _buildIssuesList(),
-            ],
-            if (validationResult.suggestion != null) ...[
-              const SizedBox(height: 12),
-              _buildSuggestion(),
-            ],
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(child: _buildHeader()),
+                  Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    size: 28,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  _buildComparisonTable(),
+                  if (widget.validationResult.issues.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _buildIssuesList(),
+                  ],
+                  if (widget.validationResult.suggestion != null) ...[
+                    const SizedBox(height: 12),
+                    _buildSuggestion(),
+                  ],
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
 
   /// 获取背景颜色
   Color _getBackgroundColor() {
-    switch (validationResult.status) {
+    switch (widget.validationResult.status) {
       case ValidationStatus.perfect:
         return Colors.green.shade50;
       case ValidationStatus.warning:
@@ -58,7 +89,7 @@ class ValidationSummaryCard extends StatelessWidget {
     String title;
     Color iconColor;
 
-    switch (validationResult.status) {
+    switch (widget.validationResult.status) {
       case ValidationStatus.perfect:
         icon = Icons.check_circle;
         title = '验证通过';
@@ -94,8 +125,8 @@ class ValidationSummaryCard extends StatelessWidget {
 
   /// 构建对比表格
   Widget _buildComparisonTable() {
-    final fileSummary = validationResult.fileSummary;
-    final calculatedSummary = validationResult.calculatedSummary;
+    final fileSummary = widget.validationResult.fileSummary;
+    final calculatedSummary = widget.validationResult.calculatedSummary;
 
     return Container(
       decoration: BoxDecoration(
@@ -248,7 +279,7 @@ class ValidationSummaryCard extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
           const SizedBox(height: 8),
-          ...validationResult.issues.map((issue) => Padding(
+          ...widget.validationResult.issues.map((issue) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,7 +316,7 @@ class ValidationSummaryCard extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              validationResult.suggestion!,
+              widget.validationResult.suggestion!,
               style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
             ),
           ),

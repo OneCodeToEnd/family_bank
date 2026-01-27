@@ -9,7 +9,9 @@ import '../../services/bill_validation_service.dart';
 import '../../services/ai/ai_classifier_factory.dart';
 import '../../services/ai/ai_config_service.dart';
 import '../../models/account.dart';
+import '../../models/transaction.dart';
 import '../../models/import_result.dart';
+import '../../widgets/transaction_detail_sheet.dart';
 import 'import_confirmation_screen.dart';
 
 /// 账单导入页面
@@ -413,6 +415,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
                       color: isIncome ? Colors.green : Colors.red,
                     ),
                   ),
+                  onTap: () => _showTransactionDetail(transaction),
                 );
               },
             ),
@@ -521,6 +524,16 @@ class _BillImportScreenState extends State<BillImportScreen> {
         );
       }
     }
+  }
+
+  /// 显示流水详情
+  void _showTransactionDetail(Transaction transaction) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TransactionDetailSheet(transaction: transaction),
+    );
   }
 
   /// 导入账单

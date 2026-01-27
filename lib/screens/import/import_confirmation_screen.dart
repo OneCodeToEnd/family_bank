@@ -8,6 +8,7 @@ import '../../services/category/category_learning_service.dart';
 import '../../services/database/transaction_db_service.dart';
 import '../../services/database/database_service.dart';
 import '../../widgets/validation/validation_summary_card.dart';
+import '../../widgets/transaction_detail_sheet.dart';
 
 /// 导入确认界面
 /// 显示导入的交易和自动匹配的分类结果
@@ -197,15 +198,37 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
       return const Center(child: Text('加载失败'));
     }
 
-    return Column(
-      children: [
+    return CustomScrollView(
+      slivers: [
         // 显示验证结果（如果有）
         if (_importResult?.validationResult != null)
-          ValidationSummaryCard(
-            validationResult: _importResult!.validationResult!,
+          SliverToBoxAdapter(
+            child: ValidationSummaryCard(
+              validationResult: _importResult!.validationResult!,
+            ),
           ),
         // 交易列表
-        Expanded(child: _buildTransactionList()),
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final transaction = _transactions[index];
+              final matchResult = _matchResults![index];
+
+              return _TransactionMatchCard(
+                transaction: transaction,
+                matchResult: matchResult,
+                category: matchResult?.categoryId != null
+                    ? _categoryMap[matchResult!.categoryId]
+                    : null,
+                onCategorySelected: (categoryId) {
+                  _onCategoryConfirmed(index, transaction, categoryId);
+                },
+                allCategories: _categoryMap.values.toList(),
+              );
+            },
+            childCount: _transactions.length,
+          ),
+        ),
       ],
     );
   }
@@ -222,28 +245,6 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
             Text('$_currentProgress/$_totalProgress'),
         ],
       ),
-    );
-  }
-
-  Widget _buildTransactionList() {
-    return ListView.builder(
-      itemCount: _transactions.length,
-      itemBuilder: (context, index) {
-        final transaction = _transactions[index];
-        final matchResult = _matchResults![index];
-
-        return _TransactionMatchCard(
-          transaction: transaction,
-          matchResult: matchResult,
-          category: matchResult?.categoryId != null
-              ? _categoryMap[matchResult!.categoryId]
-              : null,
-          onCategorySelected: (categoryId) {
-            _onCategoryConfirmed(index, transaction, categoryId);
-          },
-          allCategories: _categoryMap.values.toList(),
-        );
-      },
     );
   }
 
@@ -362,76 +363,79 @@ class _TransactionMatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 交易信息
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        transaction.description ?? '无描述',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      if (transaction.counterparty != null)
+    return InkWell(
+      onTap: () => _showTransactionDetail(context),
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 交易信息
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          transaction.counterparty!,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          transaction.description ?? '无描述',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                    ],
+                        if (transaction.counterparty != null)
+                          Text(
+                            transaction.counterparty!,
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                Text(
-                  '¥${transaction.amount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: transaction.type == 'income' ? Colors.green : Colors.red,
+                  Text(
+                    '¥${transaction.amount.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: transaction.type == 'income' ? Colors.green : Colors.red,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // 分类信息
-            Row(
-              children: [
-                const Text('分类：'),
-                if (category != null)
-                  Chip(
-                    label: Text(category!.name),
-                    avatar: _buildConfidenceBadge(),
-                  )
-                else
-                  const Chip(
-                    label: Text('未分类'),
-                    backgroundColor: Colors.grey,
-                  ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () => _showCategoryPicker(context),
-                  child: const Text('修改'),
-                ),
-              ],
-            ),
-
-            // 匹配信息
-            if (matchResult != null && matchResult!.matchedRule != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  matchResult!.matchedRule!,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
+                ],
               ),
-          ],
+              const SizedBox(height: 12),
+
+              // 分类信息
+              Row(
+                children: [
+                  const Text('分类：'),
+                  if (category != null)
+                    Chip(
+                      label: Text(category!.name),
+                      avatar: _buildConfidenceBadge(),
+                    )
+                  else
+                    const Chip(
+                      label: Text('未分类'),
+                      backgroundColor: Colors.grey,
+                    ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => _showCategoryPicker(context),
+                    child: const Text('修改'),
+                  ),
+                ],
+              ),
+
+              // 匹配信息
+              if (matchResult != null && matchResult!.matchedRule != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    matchResult!.matchedRule!,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -450,6 +454,15 @@ class _TransactionMatchCard extends StatelessWidget {
     }
 
     return Icon(Icons.check_circle, size: 16, color: color);
+  }
+
+  void _showTransactionDetail(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TransactionDetailSheet(transaction: transaction),
+    );
   }
 
   Future<void> _showCategoryPicker(BuildContext context) async {
