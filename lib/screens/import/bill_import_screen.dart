@@ -31,6 +31,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
   int? _selectedAccountId;
   bool _isImporting = false;
   ImportResult? _importResult;
+  bool _isPreviewExpanded = false; // 预览是否展开
 
   @override
   void initState() {
@@ -77,6 +78,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
       _selectedPlatform = platform;
       _selectedFilePath = null;
       _importResult = null;
+      _isPreviewExpanded = false; // 重置预览展开状态
 
       // 同步更新账户选择
       final provider = context.read<AccountProvider>();
@@ -367,6 +369,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
   /// 预览区域
   Widget _buildPreview() {
     final transactions = _importResult!.transactions;
+    final displayCount = _isPreviewExpanded ? transactions.length : (transactions.length > 10 ? 10 : transactions.length);
 
     return Card(
       child: Padding(
@@ -391,7 +394,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: transactions.take(10).length,
+              itemCount: displayCount,
               separatorBuilder: (context, index) => const Divider(),
               itemBuilder: (context, index) {
                 final transaction = transactions[index];
@@ -422,9 +425,32 @@ class _BillImportScreenState extends State<BillImportScreen> {
             if (transactions.length > 10) ...[
               const SizedBox(height: 8),
               Center(
-                child: Text(
-                  '... 还有 ${transactions.length - 10} 笔未显示',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _isPreviewExpanded = !_isPreviewExpanded;
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _isPreviewExpanded
+                            ? '收起'
+                            : '... 还有 ${transactions.length - 10} 笔未显示，点击展开',
+                          style: const TextStyle(color: Colors.blue, fontSize: 12),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          _isPreviewExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                          size: 16,
+                          color: Colors.blue,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -446,6 +472,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
         setState(() {
           _selectedFilePath = result.files.single.path;
           _importResult = null;
+          _isPreviewExpanded = false; // 重置预览展开状态
         });
       }
     } catch (e) {
@@ -487,6 +514,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
       setState(() {
         _importResult = importResult;
         _isImporting = false;
+        _isPreviewExpanded = false; // 重置预览展开状态
       });
 
       if (mounted) {
