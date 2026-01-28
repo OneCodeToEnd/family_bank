@@ -392,9 +392,10 @@ class _CategoryListScreenState extends State<CategoryListScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
+              final messenger = ScaffoldMessenger.of(context);
               final success = await provider.deleteCategory(category.id!);
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text(success ? '分类已删除' : '删除失败'),
                     backgroundColor: success ? null : Colors.red,

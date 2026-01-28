@@ -266,7 +266,7 @@ class _AccountListScreenState extends State<AccountListScreen> {
     }
 
     return CircleAvatar(
-      backgroundColor: color.withOpacity(0.1),
+      backgroundColor: color.withValues(alpha: 0.1),
       child: Icon(iconData, color: color),
     );
   }
@@ -282,9 +282,10 @@ class _AccountListScreenState extends State<AccountListScreen> {
         _navigateToEditAccount(context, account);
         break;
       case 'toggle_visibility':
+        final messenger = ScaffoldMessenger.of(context);
         await provider.toggleAccountVisibility(account.id!);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             SnackBar(
               content: Text(account.isHidden ? '账户已显示' : '账户已隐藏'),
             ),
@@ -315,9 +316,10 @@ class _AccountListScreenState extends State<AccountListScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
+              final messenger = ScaffoldMessenger.of(context);
               final success = await provider.deleteAccount(account.id!);
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text(success ? '账户已删除' : '删除失败'),
                   ),

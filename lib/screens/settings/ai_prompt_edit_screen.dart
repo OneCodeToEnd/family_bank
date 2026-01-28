@@ -6,9 +6,9 @@ class AIPromptEditScreen extends StatefulWidget {
   final AIClassificationConfig config;
 
   const AIPromptEditScreen({
-    Key? key,
+    super.key,
     required this.config,
-  }) : super(key: key);
+  });
 
   @override
   State<AIPromptEditScreen> createState() => _AIPromptEditScreenState();

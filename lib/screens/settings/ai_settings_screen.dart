@@ -12,7 +12,7 @@ import 'ai_model_management_screen.dart';
 
 /// AI分类设置界面
 class AISettingsScreen extends StatefulWidget {
-  const AISettingsScreen({Key? key}) : super(key: key);
+  const AISettingsScreen({super.key});
 
   @override
   State<AISettingsScreen> createState() => _AISettingsScreenState();
