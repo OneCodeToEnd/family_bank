@@ -198,6 +198,24 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
       return const Center(child: Text('加载失败'));
     }
 
+    // 创建索引列表并排序：失败的分类排在前面
+    final sortedIndices = List.generate(_transactions.length, (i) => i);
+    sortedIndices.sort((indexA, indexB) {
+      final matchResultA = _matchResults![indexA];
+      final matchResultB = _matchResults![indexB];
+
+      // 判断是否为失败的分类（没有匹配结果或没有分类ID）
+      final isClassificationFailedA = matchResultA == null || matchResultA.categoryId == null;
+      final isClassificationFailedB = matchResultB == null || matchResultB.categoryId == null;
+
+      // 失败的排在前面
+      if (isClassificationFailedA && !isClassificationFailedB) return -1;
+      if (!isClassificationFailedA && isClassificationFailedB) return 1;
+
+      // 如果都失败或都成功，保持原始顺序
+      return 0;
+    });
+
     return CustomScrollView(
       slivers: [
         // 显示验证结果（如果有）
@@ -211,8 +229,9 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) {
-              final transaction = _transactions[index];
-              final matchResult = _matchResults![index];
+              final originalIndex = sortedIndices[index];
+              final transaction = _transactions[originalIndex];
+              final matchResult = _matchResults![originalIndex];
 
               return _TransactionMatchCard(
                 transaction: transaction,
@@ -221,7 +240,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
                     ? _categoryMap[matchResult!.categoryId]
                     : null,
                 onCategorySelected: (categoryId) {
-                  _onCategoryConfirmed(index, transaction, categoryId);
+                  _onCategoryConfirmed(originalIndex, transaction, categoryId);
                 },
                 allCategories: _categoryMap.values.toList(),
               );
