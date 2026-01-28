@@ -381,6 +381,91 @@ class TransactionDbService {
     };
   }
 
+  /// 获取首页统计数据（当年和当月）
+  Future<Map<String, dynamic>> getHomePageStatistics() async {
+    final db = await _dbService.database;
+    final now = DateTime.now();
+
+    // 当年开始时间（1月1日 00:00:00）
+    final yearStart = DateTime(now.year, 1, 1).millisecondsSinceEpoch;
+
+    // 当月开始时间（本月1日 00:00:00）
+    final monthStart = DateTime(now.year, now.month, 1).millisecondsSinceEpoch;
+
+    // 当前时间
+    final currentTime = now.millisecondsSinceEpoch;
+
+    final result = await db.rawQuery('''
+      SELECT
+        -- 全部数据统计
+        COUNT(*) as total_count,
+        SUM(CASE WHEN ${DbConstants.columnTransactionType} = 'income' THEN 1 ELSE 0 END) as income_count,
+        SUM(CASE WHEN ${DbConstants.columnTransactionType} = 'expense' THEN 1 ELSE 0 END) as expense_count,
+
+        -- 当年统计（1月1日至今）
+        SUM(CASE
+          WHEN ${DbConstants.columnTransactionType} = 'income'
+            AND ${DbConstants.columnTransactionTime} >= ?
+            AND ${DbConstants.columnTransactionTime} <= ?
+          THEN ${DbConstants.columnTransactionAmount}
+          ELSE 0
+        END) as year_income,
+        SUM(CASE
+          WHEN ${DbConstants.columnTransactionType} = 'expense'
+            AND ${DbConstants.columnTransactionTime} >= ?
+            AND ${DbConstants.columnTransactionTime} <= ?
+          THEN ${DbConstants.columnTransactionAmount}
+          ELSE 0
+        END) as year_expense,
+
+        -- 当月统计（本月1日至今）
+        SUM(CASE
+          WHEN ${DbConstants.columnTransactionType} = 'income'
+            AND ${DbConstants.columnTransactionTime} >= ?
+            AND ${DbConstants.columnTransactionTime} <= ?
+          THEN ${DbConstants.columnTransactionAmount}
+          ELSE 0
+        END) as month_income,
+        SUM(CASE
+          WHEN ${DbConstants.columnTransactionType} = 'expense'
+            AND ${DbConstants.columnTransactionTime} >= ?
+            AND ${DbConstants.columnTransactionTime} <= ?
+          THEN ${DbConstants.columnTransactionAmount}
+          ELSE 0
+        END) as month_expense
+
+      FROM ${DbConstants.tableTransactions}
+    ''', [
+      yearStart, currentTime,   // year_income params
+      yearStart, currentTime,   // year_expense params
+      monthStart, currentTime,  // month_income params
+      monthStart, currentTime,  // month_expense params
+    ]);
+
+    if (result.isEmpty) {
+      return {
+        'total_count': 0,
+        'income_count': 0,
+        'expense_count': 0,
+        'year_income': 0.0,
+        'year_expense': 0.0,
+        'month_income': 0.0,
+        'month_expense': 0.0,
+      };
+    }
+
+    final data = result.first;
+    return {
+      'total_count': data['total_count'] ?? 0,
+      'income_count': data['income_count'] ?? 0,
+      'expense_count': data['expense_count'] ?? 0,
+      'year_income': (data['year_income'] as num?)?.toDouble() ?? 0.0,
+      'year_expense': (data['year_expense'] as num?)?.toDouble() ?? 0.0,
+      'month_income': (data['month_income'] as num?)?.toDouble() ?? 0.0,
+      'month_expense': (data['month_expense'] as num?)?.toDouble() ?? 0.0,
+    };
+  }
+
   /// 获取分类支出排行
   Future<List<Map<String, dynamic>>> getCategoryExpenseRanking({
     DateTime? startDate,

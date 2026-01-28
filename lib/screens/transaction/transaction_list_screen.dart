@@ -7,12 +7,22 @@ import '../../providers/category_provider.dart';
 import '../../providers/family_provider.dart';
 import '../../models/transaction.dart' as model;
 import '../../models/category.dart';
+import '../../utils/category_icon_utils.dart';
 import 'transaction_form_screen.dart';
 import 'transaction_detail_screen.dart';
 
 /// 账单列表页面
 class TransactionListScreen extends StatefulWidget {
-  const TransactionListScreen({super.key});
+  final String? initialType; // 初始类型筛选：'income' 或 'expense'
+  final DateTime? initialStartDate; // 初始开始日期
+  final DateTime? initialEndDate; // 初始结束日期
+
+  const TransactionListScreen({
+    super.key,
+    this.initialType,
+    this.initialStartDate,
+    this.initialEndDate,
+  });
 
   @override
   State<TransactionListScreen> createState() => _TransactionListScreenState();
@@ -23,10 +33,23 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
   DateTime _selectedMonth = DateTime.now();
   int? _selectedAccountId; // null 表示"全部账户"
   List<int> _selectedCategoryIds = []; // 选中的分类ID列表，空表示全部
+  String? _selectedType; // 类型筛选：null=全部, 'income'=收入, 'expense'=支出
+  DateTime? _startDate; // 自定义开始日期
+  DateTime? _endDate; // 自定义结束日期
+  bool _useCustomDateRange = false; // 是否使用自定义日期范围
 
   @override
   void initState() {
     super.initState();
+    // 应用初始筛选条件
+    if (widget.initialType != null) {
+      _selectedType = widget.initialType;
+    }
+    if (widget.initialStartDate != null && widget.initialEndDate != null) {
+      _startDate = widget.initialStartDate;
+      _endDate = widget.initialEndDate;
+      _useCustomDateRange = true;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
@@ -548,11 +571,24 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
   List<model.Transaction> _getFilteredTransactions(List<model.Transaction> transactions) {
     var filtered = transactions;
 
-    // 月份筛选
-    filtered = filtered.where((t) {
-      return t.transactionTime.year == _selectedMonth.year &&
-             t.transactionTime.month == _selectedMonth.month;
-    }).toList();
+    // 日期筛选：使用自定义日期范围或月份
+    if (_useCustomDateRange && _startDate != null && _endDate != null) {
+      filtered = filtered.where((t) {
+        return t.transactionTime.isAfter(_startDate!.subtract(const Duration(seconds: 1))) &&
+               t.transactionTime.isBefore(_endDate!.add(const Duration(days: 1)));
+      }).toList();
+    } else {
+      // 月份筛选
+      filtered = filtered.where((t) {
+        return t.transactionTime.year == _selectedMonth.year &&
+               t.transactionTime.month == _selectedMonth.month;
+      }).toList();
+    }
+
+    // 类型筛选
+    if (_selectedType != null) {
+      filtered = filtered.where((t) => t.type == _selectedType).toList();
+    }
 
     // 账户筛选
     if (_selectedAccountId != null) {
@@ -770,7 +806,7 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
   }
 }
 
-/// 分类选择器弹窗
+/// 分类选择器弹窗（树形结构）
 class _CategorySelectorSheet extends StatefulWidget {
   final List<Category> categories;
   final List<int> selectedCategoryIds;
@@ -788,19 +824,39 @@ class _CategorySelectorSheet extends StatefulWidget {
 
 class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
   late List<int> _tempSelectedIds;
+  final Set<int> _expandedCategoryIds = {}; // 展开的父分类ID集合
 
   @override
   void initState() {
     super.initState();
     _tempSelectedIds = List.from(widget.selectedCategoryIds);
+    // 默认展开所有一级分类
+    _expandAllTopLevel();
+  }
+
+  /// 展开所有一级分类
+  void _expandAllTopLevel() {
+    for (var category in widget.categories) {
+      if (category.parentId == null && _hasChildren(category)) {
+        _expandedCategoryIds.add(category.id!);
+      }
+    }
+  }
+
+  /// 判断分类是否有子分类
+  bool _hasChildren(Category category) {
+    return widget.categories.any((c) => c.parentId == category.id);
+  }
+
+  /// 获取子分类
+  List<Category> _getChildren(Category parent) {
+    return widget.categories
+        .where((c) => c.parentId == parent.id)
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 分离收入和支出分类
-    final incomeCategories = widget.categories.where((c) => c.type == 'income').toList();
-    final expenseCategories = widget.categories.where((c) => c.type == 'expense').toList();
-
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.75,
@@ -840,57 +896,17 @@ class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
             ),
           ),
 
-          // 分类列表
+          // 分类树形列表
           Flexible(
             child: ListView(
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                // 支出分类
-                if (expenseCategories.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.arrow_upward, size: 16, color: Colors.red),
-                        const SizedBox(width: 4),
-                        Text(
-                          '支出分类',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ...expenseCategories.map((category) =>
-                    _buildCategoryItem(category)),
-                ],
+                // 支出分类树
+                ..._buildCategoryTree('expense'),
 
-                // 收入分类
-                if (incomeCategories.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.arrow_downward, size: 16, color: Colors.green),
-                        const SizedBox(width: 4),
-                        Text(
-                          '收入分类',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ...incomeCategories.map((category) =>
-                    _buildCategoryItem(category)),
-                ],
+                // 收入分类树
+                ..._buildCategoryTree('income'),
               ],
             ),
           ),
@@ -930,50 +946,138 @@ class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
     );
   }
 
-  Widget _buildCategoryItem(Category category) {
+  /// 构建分类树（按类型）
+  List<Widget> _buildCategoryTree(String type) {
+    final topLevelCategories = widget.categories
+        .where((c) => c.parentId == null && c.type == type)
+        .toList();
+
+    if (topLevelCategories.isEmpty) {
+      return [];
+    }
+
+    return [
+      // 类型标题
+      Padding(
+        padding: EdgeInsets.fromLTRB(16, type == 'expense' ? 8 : 16, 16, 8),
+        child: Row(
+          children: [
+            Icon(
+              type == 'expense' ? Icons.arrow_upward : Icons.arrow_downward,
+              size: 16,
+              color: type == 'expense' ? Colors.red : Colors.green,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              type == 'expense' ? '支出分类' : '收入分类',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[700],
+              ),
+            ),
+          ],
+        ),
+      ),
+      // 顶级分类及其子分类
+      ...topLevelCategories.expand((category) => _buildCategoryWithChildren(category, 0)),
+    ];
+  }
+
+  /// 递归构建分类及其子分类
+  List<Widget> _buildCategoryWithChildren(Category category, int level) {
+    final hasChildren = _hasChildren(category);
+    final isExpanded = _expandedCategoryIds.contains(category.id);
+    final children = hasChildren ? _getChildren(category) : <Category>[];
+
+    return [
+      _buildCategoryItem(category, level, hasChildren, isExpanded),
+      // 如果展开且有子分类，递归显示子分类
+      if (isExpanded && hasChildren)
+        ...children.expand((child) => _buildCategoryWithChildren(child, level + 1)),
+    ];
+  }
+
+  Widget _buildCategoryItem(Category category, int level, bool hasChildren, bool isExpanded) {
     final isSelected = _tempSelectedIds.contains(category.id);
 
     return ListTile(
-      leading: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
-              : Colors.grey[100],
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Icon(
-          _getCategoryIcon(category),
-          size: 20,
-          color: isSelected ? const Color(0xFF4CAF50) : Colors.grey[600],
-        ),
+      contentPadding: EdgeInsets.only(
+        left: 16.0 + (level * 24.0), // 根据层级缩进
+        right: 16.0,
       ),
-      title: Text(category.name),
+      leading: hasChildren
+          ? IconButton(
+              icon: Icon(
+                isExpanded ? Icons.expand_more : Icons.chevron_right,
+                size: 20,
+              ),
+              onPressed: () {
+                setState(() {
+                  if (isExpanded) {
+                    _expandedCategoryIds.remove(category.id);
+                  } else {
+                    _expandedCategoryIds.add(category.id!);
+                  }
+                });
+              },
+            )
+          : const SizedBox(width: 48), // 占位，保持对齐
+      title: Row(
+        children: [
+          if (category.icon != null)
+            Icon(
+              CategoryIconUtils.getIconData(category.icon!),
+              size: 18,
+              color: CategoryIconUtils.getColor(category.color),
+            ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              category.name,
+              style: TextStyle(
+                fontWeight: level == 0 ? FontWeight.w500 : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
+      ),
       trailing: isSelected
-          ? const Icon(Icons.check_circle, color: Color(0xFF4CAF50))
-          : const Icon(Icons.circle_outlined, color: Colors.grey),
+          ? const Icon(Icons.check_circle, color: Colors.green)
+          : null,
       onTap: () {
         setState(() {
           if (isSelected) {
+            // 取消选中：移除该分类及其所有子孙分类
             _tempSelectedIds.remove(category.id);
+            final descendantIds = _getAllDescendantIds(category);
+            for (var id in descendantIds) {
+              _tempSelectedIds.remove(id);
+            }
           } else {
+            // 选中：添加该分类及其所有子孙分类
             _tempSelectedIds.add(category.id!);
+            final descendantIds = _getAllDescendantIds(category);
+            _tempSelectedIds.addAll(descendantIds);
           }
         });
       },
     );
   }
 
-  IconData _getCategoryIcon(Category category) {
-    final name = category.name;
-    if (name.contains('餐饮') || name.contains('吃')) return Icons.restaurant;
-    if (name.contains('购物')) return Icons.shopping_bag;
-    if (name.contains('交通')) return Icons.directions_car;
-    if (name.contains('娱乐')) return Icons.sports_esports;
-    if (name.contains('医疗')) return Icons.local_hospital;
-    if (name.contains('服务')) return Icons.room_service;
-    if (name.contains('工资') || name.contains('收入')) return Icons.account_balance_wallet;
-    return Icons.category;
+  /// 递归获取某个分类的所有子孙分类ID
+  List<int> _getAllDescendantIds(Category category) {
+    final List<int> descendantIds = [];
+    final children = _getChildren(category);
+
+    for (var child in children) {
+      if (child.id != null) {
+        descendantIds.add(child.id!);
+        // 递归获取子分类的子分类
+        descendantIds.addAll(_getAllDescendantIds(child));
+      }
+    }
+
+    return descendantIds;
   }
 }

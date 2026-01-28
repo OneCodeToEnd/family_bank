@@ -13,6 +13,7 @@ import 'screens/category/category_list_screen.dart';
 import 'screens/import/bill_import_screen.dart';
 import 'screens/analysis/analysis_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'services/database/transaction_db_service.dart';
 
 void main() {
   runApp(const FamilyBankApp());
@@ -69,6 +70,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _isInitialized = false;
+  Map<String, dynamic>? _homeStatistics;
+  bool _isLoadingStats = false;
 
   @override
   void initState() {
@@ -100,9 +103,43 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _isInitialized = true;
       });
+
+      // 加载统计数据
+      await _loadHomeStatistics();
     } catch (e) {
       debugPrint('初始化失败: $e');
     }
+  }
+
+  /// 加载首页统计数据
+  Future<void> _loadHomeStatistics() async {
+    setState(() {
+      _isLoadingStats = true;
+    });
+
+    try {
+      final dbService = TransactionDbService();
+      final stats = await dbService.getHomePageStatistics();
+
+      if (mounted) {
+        setState(() {
+          _homeStatistics = stats;
+          _isLoadingStats = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('加载统计数据失败: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingStats = false;
+        });
+      }
+    }
+  }
+
+  /// 刷新首页数据
+  Future<void> _refreshHomePage() async {
+    await _loadHomeStatistics();
   }
 
   @override
@@ -127,6 +164,17 @@ class _HomePageState extends State<HomePage> {
         title: const Text('账清'),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: _isLoadingStats
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh),
+            tooltip: '刷新统计',
+            onPressed: _isLoadingStats ? null : _refreshHomePage,
+          ),
           IconButton(
             icon: const Icon(Icons.receipt_long),
             tooltip: '账单列表',
@@ -153,8 +201,10 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: Consumer4<FamilyProvider, AccountProvider, CategoryProvider,
-          TransactionProvider>(
+      body: RefreshIndicator(
+        onRefresh: _refreshHomePage,
+        child: Consumer4<FamilyProvider, AccountProvider, CategoryProvider,
+            TransactionProvider>(
         builder: (context, familyProvider, accountProvider, categoryProvider,
             transactionProvider, child) {
           return ListView(
@@ -165,7 +215,7 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 16),
 
               // 统计卡片
-              _buildStatisticsCards(transactionProvider),
+              _buildStatisticsCards(),
               const SizedBox(height: 16),
 
               // 快速操作
@@ -182,6 +232,7 @@ class _HomePageState extends State<HomePage> {
             ],
           );
         },
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -250,54 +301,202 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// 统计卡片
-  Widget _buildStatisticsCards(TransactionProvider transactionProvider) {
-    final transactions = transactionProvider.transactions;
-    final incomeCount = transactions.where((t) => t.type == 'income').length;
-    final expenseCount = transactions.where((t) => t.type == 'expense').length;
-
-    return Row(
-      children: [
-        Expanded(
-          child: Card(
-            color: Colors.green.shade50,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  const Icon(Icons.arrow_downward, color: Colors.green),
-                  const SizedBox(height: 8),
-                  const Text('收入笔数'),
-                  Text(
-                    '$incomeCount',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ],
-              ),
-            ),
-          ),
+  /// 统计卡片 - 直接从数据库查询
+  Widget _buildStatisticsCards() {
+    if (_isLoadingStats) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(child: CircularProgressIndicator()),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Card(
-            color: Colors.red.shade50,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  const Icon(Icons.arrow_upward, color: Colors.red),
-                  const SizedBox(height: 8),
-                  const Text('支出笔数'),
-                  Text(
-                    '$expenseCount',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                ],
+      );
+    }
+
+    if (_homeStatistics == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(child: Text('暂无统计数据')),
+        ),
+      );
+    }
+
+    final incomeCount = _homeStatistics!['income_count'] as int? ?? 0;
+    final expenseCount = _homeStatistics!['expense_count'] as int? ?? 0;
+    final yearIncome = _homeStatistics!['year_income'] as double? ?? 0.0;
+    final yearExpense = _homeStatistics!['year_expense'] as double? ?? 0.0;
+    final monthIncome = _homeStatistics!['month_income'] as double? ?? 0.0;
+    final monthExpense = _homeStatistics!['month_expense'] as double? ?? 0.0;
+
+    final now = DateTime.now();
+    final yearStart = DateTime(now.year, 1, 1);
+    final monthStart = DateTime(now.year, now.month, 1);
+
+    return Column(
+      children: [
+        // 第一行：当年收入和支出
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: '当年总收入',
+                value: '¥${yearIncome.toStringAsFixed(2)}',
+                subtitle: '${DateTime.now().year}年至今',
+                icon: Icons.trending_up,
+                color: Colors.green,
+                filterType: 'income',
+                filterStartDate: yearStart,
+                filterEndDate: now,
               ),
             ),
-          ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                title: '当年总支出',
+                value: '¥${yearExpense.toStringAsFixed(2)}',
+                subtitle: '${DateTime.now().year}年至今',
+                icon: Icons.trending_down,
+                color: Colors.red,
+                filterType: 'expense',
+                filterStartDate: yearStart,
+                filterEndDate: now,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // 第二行：当月收入和支出
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: '当月收入',
+                value: '¥${monthIncome.toStringAsFixed(2)}',
+                subtitle: '本月至今',
+                icon: Icons.arrow_upward,
+                color: Colors.green,
+                filterType: 'income',
+                filterStartDate: monthStart,
+                filterEndDate: now,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                title: '当月支出',
+                value: '¥${monthExpense.toStringAsFixed(2)}',
+                subtitle: '本月至今',
+                icon: Icons.arrow_downward,
+                color: Colors.red,
+                filterType: 'expense',
+                filterStartDate: monthStart,
+                filterEndDate: now,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // 第三行：收入笔数和支出笔数
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: '收入笔数',
+                value: '$incomeCount',
+                subtitle: '全部记录',
+                icon: Icons.receipt,
+                color: Colors.blue,
+                filterType: 'income',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                title: '支出笔数',
+                value: '$expenseCount',
+                subtitle: '全部记录',
+                icon: Icons.receipt_long,
+                color: Colors.orange,
+                filterType: 'expense',
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  /// 构建单个统计卡片
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    String? filterType,
+    DateTime? filterStartDate,
+    DateTime? filterEndDate,
+  }) {
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TransactionListScreen(
+                initialType: filterType,
+                initialStartDate: filterStartDate,
+                initialEndDate: filterEndDate,
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: color, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

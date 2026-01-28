@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/category_stat_node.dart';
 import '../models/transaction.dart';
 import '../providers/transaction_provider.dart';
+import '../utils/category_icon_utils.dart';
 import 'transaction_item_widget.dart';
 import 'transaction_detail_sheet.dart';
 
@@ -116,9 +117,9 @@ class _CategoryStatNodeWidgetState extends State<CategoryStatNodeWidget> {
             // 分类图标
             if (widget.node.category.icon != null)
               Icon(
-                _getIconData(widget.node.category.icon!),
+                CategoryIconUtils.getIconData(widget.node.category.icon!),
                 size: 18,
-                color: _getColor(widget.node.category.color),
+                color: CategoryIconUtils.getColor(widget.node.category.color),
               ),
 
             const SizedBox(width: 8),
@@ -264,64 +265,5 @@ class _CategoryStatNodeWidgetState extends State<CategoryStatNodeWidget> {
       backgroundColor: Colors.transparent,
       builder: (context) => TransactionDetailSheet(transaction: transaction),
     );
-  }
-
-  IconData _getIconData(String iconName) {
-    // 简单的图标映射，可以根据需要扩展
-    final iconMap = {
-      'work': Icons.work,
-      'work_outline': Icons.work_outline,
-      'part_time': Icons.access_time,
-      'trending_up': Icons.trending_up,
-      'show_chart': Icons.show_chart,
-      'account_balance': Icons.account_balance,
-      'savings': Icons.savings,
-      'card_giftcard': Icons.card_giftcard,
-      'more_horiz': Icons.more_horiz,
-      'event_repeat': Icons.event_repeat,
-      'home': Icons.home,
-      'water_drop': Icons.water_drop,
-      'phone': Icons.phone,
-      'security': Icons.security,
-      'shopping_cart': Icons.shopping_cart,
-      'restaurant': Icons.restaurant,
-      'restaurant_menu': Icons.restaurant_menu,
-      'local_cafe': Icons.local_cafe,
-      'delivery_dining': Icons.delivery_dining,
-      'directions_car': Icons.directions_car,
-      'directions_bus': Icons.directions_bus,
-      'local_taxi': Icons.local_taxi,
-      'local_gas_station': Icons.local_gas_station,
-      'local_parking': Icons.local_parking,
-      'shopping_bag': Icons.shopping_bag,
-      'checkroom': Icons.checkroom,
-      'face': Icons.face,
-      'shopping_basket': Icons.shopping_basket,
-      'local_grocery_store': Icons.local_grocery_store,
-      'event': Icons.event,
-      'local_hospital': Icons.local_hospital,
-      'school': Icons.school,
-      'theaters': Icons.theaters,
-      'movie': Icons.movie,
-      'sports_esports': Icons.sports_esports,
-      'flight': Icons.flight,
-      'groups': Icons.groups,
-      'fitness_center': Icons.fitness_center,
-    };
-
-    return iconMap[iconName] ?? Icons.category;
-  }
-
-  Color _getColor(String? colorString) {
-    if (colorString == null) return Colors.grey;
-
-    try {
-      if (colorString.startsWith('#')) {
-        return Color(int.parse('0xFF${colorString.substring(1)}'));
-      }
-      return Color(int.parse(colorString));
-    } catch (e) {
-      return Colors.grey;
-    }
   }
 }
