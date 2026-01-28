@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/category_provider.dart';
 import '../../models/category.dart';
+import '../../utils/category_icon_utils.dart';
 import 'category_form_screen.dart';
 
 /// 分类管理页面
@@ -232,10 +233,12 @@ class _CategoryListScreenState extends State<CategoryListScreen> {
                 const SizedBox(width: 8),
                 // 分类图标
                 CircleAvatar(
-                  backgroundColor: _getCategoryColor(category.type).withValues(alpha: 0.1),
+                  backgroundColor: CategoryIconUtils.getColor(category.color).withValues(alpha: 0.1),
                   child: Icon(
-                    Icons.category,
-                    color: _getCategoryColor(category.type),
+                    category.icon != null
+                        ? CategoryIconUtils.getIconData(category.icon!)
+                        : Icons.category,
+                    color: CategoryIconUtils.getColor(category.color),
                     size: 20,
                   ),
                 ),
@@ -324,11 +327,6 @@ class _CategoryListScreenState extends State<CategoryListScreen> {
               _buildCategoryTree(subCategory, provider, level + 1)),
       ],
     );
-  }
-
-  /// 获取分类颜色
-  Color _getCategoryColor(String type) {
-    return type == 'income' ? Colors.green : Colors.red;
   }
 
   /// 处理菜单操作
