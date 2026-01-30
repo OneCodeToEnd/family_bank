@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import '../../models/annual_budget.dart';
 import '../../constants/db_constants.dart';
+import '../../utils/app_logger.dart';
 import 'database_service.dart';
 
 /// 年度预算数据库操作服务
@@ -111,6 +112,7 @@ class AnnualBudgetDbService {
   }
 
   /// 获取月度预算统计（单个分类）
+  /// 支持层级汇总：父分类的已用金额包含所有子分类的交易
   Future<Map<String, dynamic>> getMonthlyBudgetStats(
     int familyId,
     int categoryId,
@@ -123,14 +125,30 @@ class AnnualBudgetDbService {
     final yearStr = year.toString();
     final monthStr = month.toString().padLeft(2, '0');
 
-    final result = await db.rawQuery('''\n      SELECT
+    final result = await db.rawQuery('''\n      WITH RECURSIVE category_tree AS (
+        -- 基础查询：选择当前分类
+        SELECT ${DbConstants.columnId} as category_id
+        FROM ${DbConstants.tableCategories}
+        WHERE ${DbConstants.columnId} = ?
+
+        UNION ALL
+
+        -- 递归查询：选择所有子分类
+        SELECT c.${DbConstants.columnId} as category_id
+        FROM ${DbConstants.tableCategories} c
+        INNER JOIN category_tree ct
+          ON c.${DbConstants.columnCategoryParentId} = ct.category_id
+      )
+      SELECT
         ab.${DbConstants.columnId} as id, ab.${DbConstants.columnAnnualBudgetType} as type,
         ab.${DbConstants.columnAnnualBudgetCategoryId} as category_id,
         ab.${DbConstants.columnAnnualBudgetMonthlyAmount} as monthly_amount,
         COALESCE(SUM(t.${DbConstants.columnTransactionAmount}), 0) as spent_amount
       FROM ${DbConstants.tableAnnualBudgets} ab
+      LEFT JOIN category_tree ct
+        ON 1=1
       LEFT JOIN ${DbConstants.tableTransactions} t
-        ON t.${DbConstants.columnTransactionCategoryId} = ab.${DbConstants.columnAnnualBudgetCategoryId}
+        ON t.${DbConstants.columnTransactionCategoryId} = ct.category_id
         AND t.${DbConstants.columnTransactionType} = ab.${DbConstants.columnAnnualBudgetType}
         AND strftime('%Y', datetime(t.${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
         AND strftime('%m', datetime(t.${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
@@ -138,7 +156,7 @@ class AnnualBudgetDbService {
         AND ab.${DbConstants.columnAnnualBudgetCategoryId} = ?
         AND ab.${DbConstants.columnAnnualBudgetYear} = ?
       GROUP BY ab.${DbConstants.columnId}
-    ''', [yearStr, monthStr, familyId, categoryId, year]);
+    ''', [categoryId, yearStr, monthStr, familyId, categoryId, year]);
 
     if (result.isEmpty) {
       return {};
@@ -161,6 +179,7 @@ class AnnualBudgetDbService {
   }
 
   /// 获取所有月度预算统计（所有分类）
+  /// 支持层级汇总：父分类的已用金额包含所有子分类的交易
   Future<List<Map<String, dynamic>>> getAllMonthlyStats(
     int familyId,
     int year,
@@ -172,8 +191,30 @@ class AnnualBudgetDbService {
     final yearStr = year.toString();
     final monthStr = month.toString().padLeft(2, '0');
 
-    final result = await db.rawQuery('''\n      SELECT
-        ab.${DbConstants.columnId} as id, ab.${DbConstants.columnAnnualBudgetType} as type,
+    final result = await db.rawQuery('''\n      WITH RECURSIVE category_tree AS (
+        -- 基础查询：选择预算分类本身
+        SELECT
+          ab.${DbConstants.columnId} as budget_id,
+          c.${DbConstants.columnId} as category_id
+        FROM ${DbConstants.tableAnnualBudgets} ab
+        INNER JOIN ${DbConstants.tableCategories} c
+          ON ab.${DbConstants.columnAnnualBudgetCategoryId} = c.${DbConstants.columnId}
+        WHERE ab.${DbConstants.columnAnnualBudgetFamilyId} = ?
+          AND ab.${DbConstants.columnAnnualBudgetYear} = ?
+
+        UNION ALL
+
+        -- 递归查询：选择所有子分类
+        SELECT
+          ct.budget_id,
+          c.${DbConstants.columnId} as category_id
+        FROM ${DbConstants.tableCategories} c
+        INNER JOIN category_tree ct
+          ON c.${DbConstants.columnCategoryParentId} = ct.category_id
+      )
+      SELECT
+        ab.${DbConstants.columnId} as id,
+        ab.${DbConstants.columnAnnualBudgetType} as type,
         ab.${DbConstants.columnAnnualBudgetCategoryId} as category_id,
         ab.${DbConstants.columnAnnualBudgetMonthlyAmount} as monthly_amount,
         c.${DbConstants.columnCategoryName} as category_name,
@@ -183,8 +224,10 @@ class AnnualBudgetDbService {
       FROM ${DbConstants.tableAnnualBudgets} ab
       INNER JOIN ${DbConstants.tableCategories} c
         ON ab.${DbConstants.columnAnnualBudgetCategoryId} = c.${DbConstants.columnId}
+      LEFT JOIN category_tree ct
+        ON ct.budget_id = ab.${DbConstants.columnId}
       LEFT JOIN ${DbConstants.tableTransactions} t
-        ON t.${DbConstants.columnTransactionCategoryId} = ab.${DbConstants.columnAnnualBudgetCategoryId}
+        ON t.${DbConstants.columnTransactionCategoryId} = ct.category_id
         AND t.${DbConstants.columnTransactionType} = ab.${DbConstants.columnAnnualBudgetType}
         AND strftime('%Y', datetime(t.${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
         AND strftime('%m', datetime(t.${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
@@ -192,7 +235,7 @@ class AnnualBudgetDbService {
         AND ab.${DbConstants.columnAnnualBudgetYear} = ?
       GROUP BY ab.${DbConstants.columnId}
       ORDER BY (COALESCE(SUM(t.${DbConstants.columnTransactionAmount}), 0) / ab.${DbConstants.columnAnnualBudgetMonthlyAmount}) DESC
-    ''', [yearStr, monthStr, familyId, year]);
+    ''', [familyId, year, yearStr, monthStr, familyId, year]);
 
     return result.map((data) {
       final monthlyAmount = (data['monthly_amount'] as num?)?.toDouble() ?? 0.0;
@@ -212,5 +255,126 @@ class AnnualBudgetDbService {
         'usage_percentage': usagePercentage,
       };
     }).toList();
+  }
+
+  /// 获取年度总预算进度（汇总所有分类）
+  Future<Map<String, dynamic>> getTotalYearlyBudgetProgress(
+    int familyId,
+    int year,
+    String type,
+  ) async {
+    final db = await _dbService.database;
+    final yearStr = year.toString();
+
+    AppLogger.d('查询年度预算进度: familyId=$familyId, year=$year, type=$type');
+
+    final result = await db.rawQuery('''\n      SELECT
+        COALESCE(SUM(ab.${DbConstants.columnAnnualBudgetAnnualAmount}), 0) as total_budget,
+        COALESCE(SUM(t.amount), 0) as total_actual
+      FROM ${DbConstants.tableAnnualBudgets} ab
+      LEFT JOIN (
+        SELECT
+          ${DbConstants.columnTransactionCategoryId},
+          SUM(${DbConstants.columnTransactionAmount}) as amount
+        FROM ${DbConstants.tableTransactions}
+        WHERE ${DbConstants.columnTransactionType} = ?
+          AND strftime('%Y', datetime(${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
+        GROUP BY ${DbConstants.columnTransactionCategoryId}
+      ) t ON t.${DbConstants.columnTransactionCategoryId} = ab.${DbConstants.columnAnnualBudgetCategoryId}
+      WHERE ab.${DbConstants.columnAnnualBudgetFamilyId} = ?
+        AND ab.${DbConstants.columnAnnualBudgetYear} = ?
+        AND ab.${DbConstants.columnAnnualBudgetType} = ?
+    ''', [type, yearStr, familyId, year, type]);
+
+    AppLogger.d('查询结果: $result');
+
+    if (result.isEmpty) {
+      AppLogger.d('查询结果为空');
+      return {
+        'total_budget': 0.0,
+        'total_actual': 0.0,
+        'remaining': 0.0,
+        'percentage': 0.0,
+        'has_budget': false,
+      };
+    }
+
+    final data = result.first;
+    final totalBudget = (data['total_budget'] as num?)?.toDouble() ?? 0.0;
+    final totalActual = (data['total_actual'] as num?)?.toDouble() ?? 0.0;
+    final remaining = totalBudget - totalActual;
+    final percentage = totalBudget > 0 ? (totalActual / totalBudget * 100) : 0.0;
+
+    AppLogger.d('解析后: totalBudget=$totalBudget, totalActual=$totalActual, percentage=$percentage');
+
+    return {
+      'total_budget': totalBudget,
+      'total_actual': totalActual,
+      'remaining': remaining,
+      'percentage': percentage,
+      'has_budget': totalBudget > 0,
+    };
+  }
+
+  /// 获取月度总预算进度（汇总所有分类）
+  Future<Map<String, dynamic>> getTotalMonthlyBudgetProgress(
+    int familyId,
+    int year,
+    int month,
+    String type,
+  ) async {
+    final db = await _dbService.database;
+    final yearStr = year.toString();
+    final monthStr = month.toString().padLeft(2, '0');
+
+    AppLogger.d('查询月度预算进度: familyId=$familyId, year=$year, month=$month, type=$type');
+
+    final result = await db.rawQuery('''\n      SELECT
+        COALESCE(SUM(ab.${DbConstants.columnAnnualBudgetMonthlyAmount}), 0) as total_budget,
+        COALESCE(SUM(t.amount), 0) as total_actual
+      FROM ${DbConstants.tableAnnualBudgets} ab
+      LEFT JOIN (
+        SELECT
+          ${DbConstants.columnTransactionCategoryId},
+          SUM(${DbConstants.columnTransactionAmount}) as amount
+        FROM ${DbConstants.tableTransactions}
+        WHERE ${DbConstants.columnTransactionType} = ?
+          AND strftime('%Y', datetime(${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
+          AND strftime('%m', datetime(${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
+        GROUP BY ${DbConstants.columnTransactionCategoryId}
+      ) t ON t.${DbConstants.columnTransactionCategoryId} = ab.${DbConstants.columnAnnualBudgetCategoryId}
+      WHERE ab.${DbConstants.columnAnnualBudgetFamilyId} = ?
+        AND ab.${DbConstants.columnAnnualBudgetYear} = ?
+        AND ab.${DbConstants.columnAnnualBudgetType} = ?
+    ''', [type, yearStr, monthStr, familyId, year, type]);
+
+    AppLogger.d('查询结果: $result');
+
+    if (result.isEmpty) {
+      AppLogger.d('查询结果为空');
+      return {
+        'total_budget': 0.0,
+        'total_actual': 0.0,
+        'remaining': 0.0,
+        'percentage': 0.0,
+        'has_budget': false,
+      };
+    }
+
+    final data = result.first;
+    final totalBudget = (data['total_budget'] as num?)?.toDouble() ?? 0.0;
+    final totalActual = (data['total_actual'] as num?)?.toDouble() ?? 0.0;
+    final remaining = totalBudget - totalActual;
+    final percentage = totalBudget > 0 ? (totalActual / totalBudget * 100) : 0.0;
+
+    AppLogger.d('解析后: totalBudget=$totalBudget, totalActual=$totalActual, percentage=$percentage');
+
+    return {
+      'total_budget': totalBudget,
+      'total_actual': totalActual,
+      'remaining': remaining,
+      'percentage': percentage,
+      'has_budget': totalBudget > 0,
+    };
   }
 }

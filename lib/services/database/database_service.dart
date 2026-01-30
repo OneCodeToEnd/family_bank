@@ -142,21 +142,6 @@ class DatabaseService {
       )
     ''');
 
-    // 创建预算表 (V3.0功能,先创建表结构)
-    await db.execute('''
-      CREATE TABLE ${DbConstants.tableBudgets} (
-        ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
-        ${DbConstants.columnBudgetTargetType} TEXT NOT NULL,
-        ${DbConstants.columnBudgetTargetId} INTEGER NOT NULL,
-        ${DbConstants.columnBudgetAmount} REAL NOT NULL,
-        ${DbConstants.columnBudgetPeriod} TEXT NOT NULL,
-        ${DbConstants.columnBudgetStartDate} INTEGER NOT NULL,
-        ${DbConstants.columnBudgetEndDate} INTEGER,
-        ${DbConstants.columnBudgetIsActive} INTEGER DEFAULT 1,
-        ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
-        ${DbConstants.columnUpdatedAt} INTEGER NOT NULL
-      )
-    ''');
 
     // 创建应用设置表
     await db.execute('''
@@ -292,11 +277,6 @@ class DatabaseService {
     );
     await db.execute(
       'CREATE INDEX idx_rule_category ON ${DbConstants.tableCategoryRules}(${DbConstants.columnRuleCategoryId})',
-    );
-
-    // 预算表索引
-    await db.execute(
-      'CREATE INDEX idx_budget_target ON ${DbConstants.tableBudgets}(${DbConstants.columnBudgetTargetType}, ${DbConstants.columnBudgetTargetId})',
     );
 
     // 年度预算表索引
@@ -544,6 +524,12 @@ class DatabaseService {
       await db.execute('''\n        CREATE INDEX idx_annual_budget_type
         ON ${DbConstants.tableAnnualBudgets}(${DbConstants.columnAnnualBudgetType})
       ''');
+    }
+
+    // V9升级：删除未使用的budgets表
+    if (oldVersion < 9) {
+      // 删除budgets表（该表从未被使用，已被annual_budgets替代）
+      await db.execute('DROP TABLE IF EXISTS budgets');
     }
   }
 

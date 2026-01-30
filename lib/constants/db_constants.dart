@@ -2,7 +2,7 @@
 class DbConstants {
   // 数据库信息
   static const String dbName = 'family_bank.db';
-  static const int dbVersion = 8;
+  static const int dbVersion = 9;
 
   // 表名
   static const String tableFamilyGroups = 'family_groups';
@@ -11,7 +11,6 @@ class DbConstants {
   static const String tableCategories = 'categories';
   static const String tableTransactions = 'transactions';
   static const String tableCategoryRules = 'category_rules';
-  static const String tableBudgets = 'budgets';
   static const String tableAnnualBudgets = 'annual_budgets';
   static const String tableAppSettings = 'app_settings';
   static const String tableHttpLogs = 'http_logs';
@@ -81,15 +80,6 @@ class DbConstants {
   static const String columnRuleAliases = 'aliases';
   static const String columnRuleAutoLearn = 'auto_learn';
   static const String columnRuleCaseSensitive = 'case_sensitive';
-
-  // budgets 表字段
-  static const String columnBudgetTargetType = 'target_type';
-  static const String columnBudgetTargetId = 'target_id';
-  static const String columnBudgetAmount = 'amount';
-  static const String columnBudgetPeriod = 'period';
-  static const String columnBudgetStartDate = 'start_date';
-  static const String columnBudgetEndDate = 'end_date';
-  static const String columnBudgetIsActive = 'is_active';
 
   // annual_budgets 表字段
   static const String columnAnnualBudgetFamilyId = 'family_id';
@@ -238,27 +228,4 @@ class RuleMatchPosition {
         return position;
     }
   }
-}
-
-/// 预算周期枚举
-class BudgetPeriod {
-  static const String monthly = 'monthly';
-  static const String yearly = 'yearly';
-
-  static String getDisplayName(String period) {
-    switch (period) {
-      case monthly:
-        return '月度';
-      case yearly:
-        return '年度';
-      default:
-        return period;
-    }
-  }
-}
-
-/// 预算目标类型枚举
-class BudgetTargetType {
-  static const String category = 'category';
-  static const String account = 'account';
 }

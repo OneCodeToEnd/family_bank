@@ -385,7 +385,6 @@ class _BudgetOverviewScreenState extends State<BudgetOverviewScreen> {
     final monthlyAmount = stats['monthly_amount'] as double;
     final spentAmount = stats['spent_amount'] as double;
     final usagePercentage = stats['usage_percentage'] as double;
-    final isAggregated = stats['is_aggregated'] as bool? ?? false;
 
     // 确定状态颜色
     Color statusColor;
@@ -439,26 +438,12 @@ class _BudgetOverviewScreenState extends State<BudgetOverviewScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Row(
-                    children: [
-                      Text(
-                        category.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (isAggregated) ...[
-                        const SizedBox(width: 4),
-                        Text(
-                          '(汇总)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    category.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 Text(
@@ -505,55 +490,21 @@ class _BudgetOverviewScreenState extends State<BudgetOverviewScreen> {
     );
   }
 
-  /// 获取分类的统计数据（支持汇总）
+  /// 获取分类的统计数据
+  /// 注意：数据库层已经实现了层级汇总（包含子分类的交易），这里直接使用即可
   Map<String, dynamic> _getCategoryStats(Category category, BudgetProvider budgetProvider) {
-    // 首先尝试获取该分类自己的统计数据
-    final directStats = budgetProvider.monthlyStats.firstWhere(
+    // 获取该分类的统计数据（数据库层已包含子分类的交易汇总）
+    final stats = budgetProvider.monthlyStats.firstWhere(
       (s) => s['category_id'] == category.id,
       orElse: () => <String, dynamic>{},
     );
 
-    // 如果该分类本身有预算，直接返回
-    if (directStats.isNotEmpty) {
-      return {...directStats, 'is_aggregated': false};
-    }
-
-    // 否则，尝试汇总子分类的数据
-    final children = _getChildren(category, context.read<CategoryProvider>().visibleCategories);
-    if (children.isEmpty) {
+    if (stats.isEmpty) {
       return {};
     }
 
-    double totalMonthlyAmount = 0;
-    double totalSpentAmount = 0;
-
-    for (final child in children) {
-      final childStats = budgetProvider.monthlyStats.firstWhere(
-        (s) => s['category_id'] == child.id,
-        orElse: () => <String, dynamic>{},
-      );
-
-      if (childStats.isNotEmpty) {
-        totalMonthlyAmount += (childStats['monthly_amount'] as double? ?? 0);
-        totalSpentAmount += (childStats['spent_amount'] as double? ?? 0);
-      }
-    }
-
-    // 如果没有任何子分类有预算，返回空
-    if (totalMonthlyAmount == 0) {
-      return {};
-    }
-
-    final usagePercentage = totalMonthlyAmount > 0 ? (totalSpentAmount / totalMonthlyAmount * 100) : 0.0;
-
-    return {
-      'category_id': category.id,
-      'monthly_amount': totalMonthlyAmount,
-      'spent_amount': totalSpentAmount,
-      'remaining_amount': totalMonthlyAmount - totalSpentAmount,
-      'usage_percentage': usagePercentage,
-      'is_aggregated': true,
-    };
+    // 直接返回数据库层的统计数据，不需要额外的汇总逻辑
+    return {...stats, 'is_aggregated': false};
   }
 
   /// 跳转到添加预算页面

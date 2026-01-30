@@ -20,8 +20,10 @@ import 'screens/settings/email_config_screen.dart';
 import 'screens/member/member_list_screen.dart';
 import 'screens/category/category_rule_list_screen.dart';
 import 'screens/import/email_bill_select_screen.dart';
+import 'screens/budget/budget_overview_screen.dart';
 import 'services/database/transaction_db_service.dart';
 import 'services/database/email_config_db_service.dart';
+import 'services/database/annual_budget_db_service.dart';
 import 'services/quick_action_service.dart';
 import 'models/quick_action.dart';
 import 'utils/app_logger.dart';
@@ -87,6 +89,12 @@ class _HomePageState extends State<HomePage> {
   late Future<List<QuickAction>> _quickActionsFuture;
   final QuickActionService _quickActionService = QuickActionService();
 
+  // 预算进度数据
+  Map<String, dynamic>? _yearlyIncomeBudget;
+  Map<String, dynamic>? _yearlyExpenseBudget;
+  Map<String, dynamic>? _monthlyIncomeBudget;
+  Map<String, dynamic>? _monthlyExpenseBudget;
+
   @override
   void initState() {
     super.initState();
@@ -145,9 +153,47 @@ class _HomePageState extends State<HomePage> {
       final dbService = TransactionDbService();
       final stats = await dbService.getHomePageStatistics();
 
+      // 加载预算进度数据
+      final budgetDbService = AnnualBudgetDbService();
+      final now = DateTime.now();
+      final familyId = 1; // TODO: 从 FamilyProvider 获取当前家庭ID
+
+      final yearlyIncome = await budgetDbService.getTotalYearlyBudgetProgress(
+        familyId,
+        now.year,
+        'income',
+      );
+      final yearlyExpense = await budgetDbService.getTotalYearlyBudgetProgress(
+        familyId,
+        now.year,
+        'expense',
+      );
+      final monthlyIncome = await budgetDbService.getTotalMonthlyBudgetProgress(
+        familyId,
+        now.year,
+        now.month,
+        'income',
+      );
+      final monthlyExpense = await budgetDbService.getTotalMonthlyBudgetProgress(
+        familyId,
+        now.year,
+        now.month,
+        'expense',
+      );
+
+      // 调试日志
+      AppLogger.d('年度收入预算: $yearlyIncome');
+      AppLogger.d('年度支出预算: $yearlyExpense');
+      AppLogger.d('月度收入预算: $monthlyIncome');
+      AppLogger.d('月度支出预算: $monthlyExpense');
+
       if (mounted) {
         setState(() {
           _homeStatistics = stats;
+          _yearlyIncomeBudget = yearlyIncome;
+          _yearlyExpenseBudget = yearlyExpense;
+          _monthlyIncomeBudget = monthlyIncome;
+          _monthlyExpenseBudget = monthlyExpense;
           _isLoadingStats = false;
         });
       }
@@ -258,18 +304,6 @@ class _HomePageState extends State<HomePage> {
         },
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const TransactionFormScreen(),
-            ),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('记一笔'),
-      ),
     );
   }
 
@@ -345,8 +379,6 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    final incomeCount = _homeStatistics!['income_count'] as int? ?? 0;
-    final expenseCount = _homeStatistics!['expense_count'] as int? ?? 0;
     final yearIncome = _homeStatistics!['year_income'] as double? ?? 0.0;
     final yearExpense = _homeStatistics!['year_expense'] as double? ?? 0.0;
     final monthIncome = _homeStatistics!['month_income'] as double? ?? 0.0;
@@ -422,28 +454,48 @@ class _HomePageState extends State<HomePage> {
         ),
         const SizedBox(height: 12),
 
-        // 第三行：收入笔数和支出笔数
+        // 第三行：当年预算进度
         Row(
           children: [
             Expanded(
-              child: _buildStatCard(
-                title: '收入笔数',
-                value: '$incomeCount',
-                subtitle: '全部记录',
-                icon: Icons.receipt,
-                color: Colors.blue,
-                filterType: 'income',
+              child: _buildBudgetProgressCard(
+                title: '当年收入预算',
+                budgetData: _yearlyIncomeBudget,
+                type: 'income',
+                isYearly: true,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildStatCard(
-                title: '支出笔数',
-                value: '$expenseCount',
-                subtitle: '全部记录',
-                icon: Icons.receipt_long,
-                color: Colors.orange,
-                filterType: 'expense',
+              child: _buildBudgetProgressCard(
+                title: '当年支出预算',
+                budgetData: _yearlyExpenseBudget,
+                type: 'expense',
+                isYearly: true,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // 第四行：当月预算进度
+        Row(
+          children: [
+            Expanded(
+              child: _buildBudgetProgressCard(
+                title: '当月收入预算',
+                budgetData: _monthlyIncomeBudget,
+                type: 'income',
+                isYearly: false,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildBudgetProgressCard(
+                title: '当月支出预算',
+                budgetData: _monthlyExpenseBudget,
+                type: 'expense',
+                isYearly: false,
               ),
             ),
           ],
@@ -512,6 +564,154 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 4),
               Text(
                 subtitle,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 构建预算进度卡片
+  Widget _buildBudgetProgressCard({
+    required String title,
+    required Map<String, dynamic>? budgetData,
+    required String type,
+    required bool isYearly,
+  }) {
+    final color = type == 'income' ? Colors.green : Colors.red;
+    final icon = isYearly
+        ? (type == 'income' ? Icons.trending_up : Icons.trending_down)
+        : (type == 'income' ? Icons.arrow_upward : Icons.arrow_downward);
+
+    // 检查是否有预算
+    final hasBudget = budgetData?['has_budget'] == true;
+
+    if (!hasBudget) {
+      // 无预算时显示引导设置
+      return Card(
+        elevation: 2,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const BudgetOverviewScreen(),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, color: Colors.grey, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '未设置',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '点击设置预算',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.blue[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 有预算时显示进度
+    final totalBudget = budgetData!['total_budget'] as double;
+    final totalActual = budgetData['total_actual'] as double;
+    final percentage = budgetData['percentage'] as double;
+
+    // 判断是否超预算
+    final isOverBudget = totalActual > totalBudget;
+    final displayColor = isOverBudget ? Colors.orange : color;
+
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const BudgetOverviewScreen(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: displayColor, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Text(
+                    '${percentage.toStringAsFixed(1)}%',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: displayColor,
+                    ),
+                  ),
+                  if (isOverBudget) ...[
+                    const SizedBox(width: 4),
+                    Icon(Icons.warning, color: Colors.orange, size: 16),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '¥${totalActual.toStringAsFixed(0)} / ¥${totalBudget.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontSize: 10,
                   color: Colors.grey[600],
@@ -613,10 +813,20 @@ class _HomePageState extends State<HomePage> {
     return InkWell(
       onTap: onTap,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 32),
+          Icon(icon, size: 28),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12)),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -653,6 +863,9 @@ class _HomePageState extends State<HomePage> {
         break;
       case 'CategoryRuleListScreen':
         screen = const CategoryRuleListScreen();
+        break;
+      case 'BudgetOverviewScreen':
+        screen = const BudgetOverviewScreen();
         break;
       case 'EmailBillSelectScreen':
         // 邮箱同步需要特殊处理
