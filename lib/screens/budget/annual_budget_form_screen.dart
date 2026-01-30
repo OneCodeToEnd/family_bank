@@ -355,6 +355,22 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
               ),
             ),
 
+            // 汇总按钮（仅父级分类显示）
+            if (hasChildren) ...[
+              const SizedBox(width: 8),
+              Tooltip(
+                message: '从子分类汇总',
+                child: IconButton(
+                  icon: const Icon(Icons.calculate, size: 20),
+                  onPressed: () => _aggregateFromChildren(category),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue.shade50,
+                    foregroundColor: Colors.blue.shade700,
+                  ),
+                ),
+              ),
+            ],
+
             // 金额输入
             SizedBox(
               width: 120,
@@ -388,6 +404,54 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 从子分类汇总预算
+  void _aggregateFromChildren(Category category) {
+    final categoryProvider = context.read<CategoryProvider>();
+    final children = _getChildren(category, categoryProvider.visibleCategories);
+
+    if (children.isEmpty) {
+      return;
+    }
+
+    double total = 0;
+    int count = 0;
+
+    for (final child in children) {
+      final controller = _amountControllers[child.id];
+      if (controller != null && controller.text.isNotEmpty) {
+        try {
+          total += double.parse(controller.text);
+          count++;
+        } catch (e) {
+          // 忽略无效输入
+        }
+      }
+    }
+
+    if (count == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('子分类中没有设置预算'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // 更新父级输入框
+    setState(() {
+      _amountControllers[category.id]?.text = total.toStringAsFixed(0);
+      _selectedCategories[category.id!] = true; // 自动选中
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('已汇总 $count 个子分类，共 ${total.toStringAsFixed(0)} 元'),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
