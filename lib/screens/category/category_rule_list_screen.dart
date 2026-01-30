@@ -179,24 +179,22 @@ class _CategoryRuleListScreenState extends State<CategoryRuleListScreen> {
   Widget _buildFilters() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'all', label: Text('全部')),
-                ButtonSegment(value: 'user', label: Text('手动创建')),
-                ButtonSegment(value: 'learned', label: Text('自动学习')),
-              ],
-              selected: {_filterSource},
-              onSelectionChanged: (Set<String> selected) {
-                setState(() {
-                  _filterSource = selected.first;
-                });
-              },
-            ),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'all', label: Text('全部')),
+              ButtonSegment(value: 'user', label: Text('手动创建')),
+              ButtonSegment(value: 'learned', label: Text('自动学习')),
+            ],
+            selected: {_filterSource},
+            onSelectionChanged: (Set<String> selected) {
+              setState(() {
+                _filterSource = selected.first;
+              });
+            },
           ),
-          const SizedBox(width: 8),
+          const SizedBox(height: 8),
           SegmentedButton<String>(
             segments: const [
               ButtonSegment(value: 'all', label: Text('全部')),

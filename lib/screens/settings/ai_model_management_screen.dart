@@ -41,7 +41,7 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load models: $e')),
+          SnackBar(content: Text('加载模型失败: $e')),
         );
       }
     }
@@ -73,17 +73,17 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Model'),
-        content: Text('Are you sure you want to delete "${model.name}"?'),
+        title: const Text('删除模型'),
+        content: Text('确定要删除"${model.name}"吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('取消'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: const Text('删除'),
           ),
         ],
       ),
@@ -95,13 +95,13 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
         _loadModels();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Model deleted successfully')),
+            const SnackBar(content: Text('模型已删除')),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to delete model: $e')),
+            SnackBar(content: Text('删除模型失败: $e')),
           );
         }
       }
@@ -114,13 +114,13 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
       _loadModels();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${model.name} set as active')),
+          SnackBar(content: Text('已将 ${model.name} 设为活跃模型')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to set active model: $e')),
+          SnackBar(content: Text('设置活跃模型失败: $e')),
         );
       }
     }
@@ -130,7 +130,7 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Model Management'),
+        title: const Text('AI模型管理'),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -143,14 +143,14 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
                           size: 64, color: Colors.grey),
                       const SizedBox(height: 16),
                       const Text(
-                        'No AI models configured',
+                        '暂无AI模型配置',
                         style: TextStyle(fontSize: 16, color: Colors.grey),
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton.icon(
                         onPressed: _addModel,
                         icon: const Icon(Icons.add),
-                        label: const Text('Add Model'),
+                        label: const Text('添加模型'),
                       ),
                     ],
                   ),
@@ -193,7 +193,7 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
                           children: [
                             if (model.isActive)
                               const Chip(
-                                label: Text('Active',
+                                label: Text('活跃',
                                     style: TextStyle(fontSize: 10)),
                                 backgroundColor: Colors.green,
                                 labelStyle: TextStyle(color: Colors.white),
@@ -201,7 +201,7 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
                             else
                               TextButton(
                                 onPressed: () => _setActiveModel(model),
-                                child: const Text('Set Active'),
+                                child: const Text('设为活跃'),
                               ),
                             PopupMenuButton<String>(
                               onSelected: (value) {
@@ -214,11 +214,11 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
                               itemBuilder: (context) => [
                                 const PopupMenuItem(
                                   value: 'edit',
-                                  child: Text('Edit'),
+                                  child: Text('编辑'),
                                 ),
                                 const PopupMenuItem(
                                   value: 'delete',
-                                  child: Text('Delete'),
+                                  child: Text('删除'),
                                 ),
                               ],
                             ),

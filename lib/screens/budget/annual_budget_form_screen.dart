@@ -280,128 +280,148 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
       margin: EdgeInsets.only(bottom: 8, left: level * 16.0),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 展开/折叠按钮或占位
-            if (hasChildren)
-              IconButton(
-                icon: Icon(
-                  isExpanded ? Icons.expand_more : Icons.chevron_right,
-                  size: 20,
+            // 第一行：展开按钮、复选框、图标、名称、汇总按钮
+            Row(
+              children: [
+                // 展开/折叠按钮或占位
+                if (hasChildren)
+                  IconButton(
+                    icon: Icon(
+                      isExpanded ? Icons.expand_more : Icons.chevron_right,
+                      size: 20,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        if (isExpanded) {
+                          _expandedCategoryIds.remove(category.id);
+                        } else {
+                          _expandedCategoryIds.add(category.id!);
+                        }
+                      });
+                    },
+                  )
+                else
+                  const SizedBox(width: 40),
+
+                // 复选框
+                Checkbox(
+                  value: isSelected,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedCategories[category.id!] = value ?? false;
+                    });
+                  },
                 ),
-                onPressed: () {
-                  setState(() {
-                    if (isExpanded) {
-                      _expandedCategoryIds.remove(category.id);
-                    } else {
-                      _expandedCategoryIds.add(category.id!);
-                    }
-                  });
-                },
-              )
-            else
-              const SizedBox(width: 48),
 
-            // 复选框
-            Checkbox(
-              value: isSelected,
-              onChanged: (value) {
-                setState(() {
-                  _selectedCategories[category.id!] = value ?? false;
-                });
-              },
-            ),
-
-            // 分类图标和名称
-            CircleAvatar(
-              backgroundColor: color.withValues(alpha: 0.1),
-              child: Icon(iconData, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                // 分类图标和名称
+                CircleAvatar(
+                  backgroundColor: color.withValues(alpha: 0.1),
+                  child: Icon(iconData, color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        category.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              category.name,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isAggregated) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              '(汇总)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      if (isAggregated) ...[
-                        const SizedBox(width: 4),
+                      if (monthlyAmount > 0)
                         Text(
-                          '(汇总)',
+                          '年度: ${annualAmount.toStringAsFixed(0)}元 → ${monthlyAmount.toStringAsFixed(0)}元/月',
                           style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
+                            fontSize: 12,
+                            color: isAggregated ? Colors.blue[700] : Colors.grey[600],
                           ),
                         ),
-                      ],
                     ],
                   ),
-                  if (monthlyAmount > 0)
-                    Text(
-                      '年度: ${annualAmount.toStringAsFixed(0)}元 → ${monthlyAmount.toStringAsFixed(0)}元/月',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isAggregated ? Colors.blue[700] : Colors.grey[600],
+                ),
+
+                // 汇总按钮（仅父级分类显示）
+                if (hasChildren)
+                  Tooltip(
+                    message: '从子分类汇总',
+                    child: IconButton(
+                      icon: const Icon(Icons.calculate, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
+                      onPressed: () => _aggregateFromChildren(category),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.blue.shade50,
+                        foregroundColor: Colors.blue.shade700,
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
 
-            // 汇总按钮（仅父级分类显示）
-            if (hasChildren) ...[
-              const SizedBox(width: 8),
-              Tooltip(
-                message: '从子分类汇总',
-                child: IconButton(
-                  icon: const Icon(Icons.calculate, size: 20),
-                  onPressed: () => _aggregateFromChildren(category),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.blue.shade50,
-                    foregroundColor: Colors.blue.shade700,
+            // 第二行：金额输入（仅在选中时显示）
+            if (isSelected) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 40),
+                child: TextFormField(
+                  controller: controller,
+                  enabled: isSelected,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: InputDecoration(
+                    hintText: '年度金额',
+                    suffixText: '元/年',
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
                   ),
+                  validator: (value) {
+                    if (isSelected && (value == null || value.isEmpty)) {
+                      return '请输入金额';
+                    }
+                    if (isSelected && double.tryParse(value!) == null) {
+                      return '无效金额';
+                    }
+                    return null;
+                  },
+                  onChanged: (_) => setState(() {}),
                 ),
               ),
             ],
-
-            // 金额输入
-            SizedBox(
-              width: 120,
-              child: TextFormField(
-                controller: controller,
-                enabled: isSelected,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: InputDecoration(
-                  hintText: '年度金额',
-                  suffixText: '元/年',
-                  border: const OutlineInputBorder(),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                ),
-                validator: (value) {
-                  if (isSelected && (value == null || value.isEmpty)) {
-                    return '请输入金额';
-                  }
-                  if (isSelected && double.tryParse(value!) == null) {
-                    return '无效金额';
-                  }
-                  return null;
-                },
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
           ],
         ),
       ),
