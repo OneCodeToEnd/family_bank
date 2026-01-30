@@ -16,6 +16,8 @@ class BudgetOverviewScreen extends StatefulWidget {
 
 class _BudgetOverviewScreenState extends State<BudgetOverviewScreen> {
   final Set<int> _expandedCategoryIds = {}; // 展开的父分类ID集合
+  bool _isExpenseSectionExpanded = true; // 支出预算区域是否展开
+  bool _isIncomeSectionExpanded = true; // 收入预算区域是否展开
 
   @override
   void initState() {
@@ -290,32 +292,52 @@ class _BudgetOverviewScreenState extends State<BudgetOverviewScreen> {
     }
 
     return [
-      // 类型标题
-      Padding(
-        padding: EdgeInsets.fromLTRB(8, type == 'expense' ? 8 : 16, 8, 8),
-        child: Row(
-          children: [
-            Icon(
-              type == 'expense' ? Icons.arrow_upward : Icons.arrow_downward,
-              size: 16,
-              color: type == 'expense' ? Colors.red : Colors.green,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              type == 'expense' ? '支出预算' : '收入预算',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+      // 类型标题（可折叠）
+      InkWell(
+        onTap: () {
+          setState(() {
+            if (type == 'expense') {
+              _isExpenseSectionExpanded = !_isExpenseSectionExpanded;
+            } else {
+              _isIncomeSectionExpanded = !_isIncomeSectionExpanded;
+            }
+          });
+        },
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(8, type == 'expense' ? 8 : 16, 8, 8),
+          child: Row(
+            children: [
+              Icon(
+                (type == 'expense' ? _isExpenseSectionExpanded : _isIncomeSectionExpanded)
+                    ? Icons.expand_more
+                    : Icons.chevron_right,
+                size: 20,
                 color: Colors.grey[700],
               ),
-            ),
-          ],
+              const SizedBox(width: 4),
+              Icon(
+                type == 'expense' ? Icons.arrow_upward : Icons.arrow_downward,
+                size: 16,
+                color: type == 'expense' ? Colors.red : Colors.green,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                type == 'expense' ? '支出预算' : '收入预算',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      // 顶级分类及其子分类
-      ...topLevelCategories.expand((category) =>
-        _buildCategoryBudgetWithChildren(category, 0, budgetProvider, categoryProvider)
-      ),
+      // 顶级分类及其子分类（根据展开状态显示）
+      if (type == 'expense' ? _isExpenseSectionExpanded : _isIncomeSectionExpanded)
+        ...topLevelCategories.expand((category) =>
+          _buildCategoryBudgetWithChildren(category, 0, budgetProvider, categoryProvider)
+        ),
     ];
   }
 
