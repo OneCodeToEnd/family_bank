@@ -225,6 +225,23 @@ class DatabaseService {
       )
     ''');
 
+    // 创建年度预算表 (V7新增)
+    await db.execute('''\n      CREATE TABLE ${DbConstants.tableAnnualBudgets} (
+        ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.columnAnnualBudgetFamilyId} INTEGER NOT NULL,
+        ${DbConstants.columnAnnualBudgetCategoryId} INTEGER NOT NULL,
+        ${DbConstants.columnAnnualBudgetYear} INTEGER NOT NULL,
+        ${DbConstants.columnAnnualBudgetType} TEXT NOT NULL DEFAULT 'expense',
+        ${DbConstants.columnAnnualBudgetAnnualAmount} REAL NOT NULL,
+        ${DbConstants.columnAnnualBudgetMonthlyAmount} REAL NOT NULL,
+        ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
+        ${DbConstants.columnUpdatedAt} INTEGER NOT NULL,
+        UNIQUE(${DbConstants.columnAnnualBudgetFamilyId}, ${DbConstants.columnAnnualBudgetCategoryId}, ${DbConstants.columnAnnualBudgetYear}),
+        FOREIGN KEY (${DbConstants.columnAnnualBudgetFamilyId}) REFERENCES ${DbConstants.tableFamilyGroups}(${DbConstants.columnId}) ON DELETE CASCADE,
+        FOREIGN KEY (${DbConstants.columnAnnualBudgetCategoryId}) REFERENCES ${DbConstants.tableCategories}(${DbConstants.columnId}) ON DELETE CASCADE
+      )
+    ''');
+
     // 创建索引
     await _createIndexes(db);
 
@@ -280,6 +297,20 @@ class DatabaseService {
     // 预算表索引
     await db.execute(
       'CREATE INDEX idx_budget_target ON ${DbConstants.tableBudgets}(${DbConstants.columnBudgetTargetType}, ${DbConstants.columnBudgetTargetId})',
+    );
+
+    // 年度预算表索引
+    await db.execute(
+      'CREATE INDEX idx_annual_budget_family ON ${DbConstants.tableAnnualBudgets}(${DbConstants.columnAnnualBudgetFamilyId})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_annual_budget_category ON ${DbConstants.tableAnnualBudgets}(${DbConstants.columnAnnualBudgetCategoryId})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_annual_budget_year ON ${DbConstants.tableAnnualBudgets}(${DbConstants.columnAnnualBudgetYear})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_annual_budget_type ON ${DbConstants.tableAnnualBudgets}(${DbConstants.columnAnnualBudgetType})',
     );
 
     // HTTP日志表索引
@@ -470,6 +501,48 @@ class DatabaseService {
       await db.execute('''
         CREATE INDEX idx_ai_models_is_active
         ON ${DbConstants.tableAIModels}(is_active)
+      ''');
+    }
+
+    // V7升级：添加年度预算表
+    if (oldVersion < 7) {
+      await db.execute('''\n        CREATE TABLE ${DbConstants.tableAnnualBudgets} (
+          ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DbConstants.columnAnnualBudgetFamilyId} INTEGER NOT NULL,
+          ${DbConstants.columnAnnualBudgetCategoryId} INTEGER NOT NULL,
+          ${DbConstants.columnAnnualBudgetYear} INTEGER NOT NULL,
+          ${DbConstants.columnAnnualBudgetAnnualAmount} REAL NOT NULL,
+          ${DbConstants.columnAnnualBudgetMonthlyAmount} REAL NOT NULL,
+          ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
+          ${DbConstants.columnUpdatedAt} INTEGER NOT NULL,
+          UNIQUE(${DbConstants.columnAnnualBudgetFamilyId}, ${DbConstants.columnAnnualBudgetCategoryId}, ${DbConstants.columnAnnualBudgetYear}),
+          FOREIGN KEY (${DbConstants.columnAnnualBudgetFamilyId}) REFERENCES ${DbConstants.tableFamilyGroups}(${DbConstants.columnId}) ON DELETE CASCADE,
+          FOREIGN KEY (${DbConstants.columnAnnualBudgetCategoryId}) REFERENCES ${DbConstants.tableCategories}(${DbConstants.columnId}) ON DELETE CASCADE
+        )
+      ''');
+
+      // 创建索引
+      await db.execute('''\n        CREATE INDEX idx_annual_budget_family
+        ON ${DbConstants.tableAnnualBudgets}(${DbConstants.columnAnnualBudgetFamilyId})
+      ''');
+
+      await db.execute('''\n        CREATE INDEX idx_annual_budget_category
+        ON ${DbConstants.tableAnnualBudgets}(${DbConstants.columnAnnualBudgetCategoryId})
+      ''');
+
+      await db.execute('''\n        CREATE INDEX idx_annual_budget_year
+        ON ${DbConstants.tableAnnualBudgets}(${DbConstants.columnAnnualBudgetYear})
+      ''');
+    }
+
+    // V8升级：为annual_budgets表添加type字段
+    if (oldVersion < 8) {
+      await db.execute('''\n        ALTER TABLE ${DbConstants.tableAnnualBudgets}\n        ADD COLUMN ${DbConstants.columnAnnualBudgetType} TEXT NOT NULL DEFAULT 'expense'
+      ''');
+
+      // 创建索引以优化查询性能
+      await db.execute('''\n        CREATE INDEX idx_annual_budget_type
+        ON ${DbConstants.tableAnnualBudgets}(${DbConstants.columnAnnualBudgetType})
       ''');
     }
   }

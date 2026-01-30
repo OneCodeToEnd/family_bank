@@ -8,11 +8,14 @@ import '../../providers/transaction_provider.dart';
 import '../../providers/family_provider.dart';
 import '../../services/database/database_service.dart';
 import '../member/member_list_screen.dart';
+import '../budget/budget_overview_screen.dart';
 import 'ai_settings_screen.dart';
 import '../category/category_rule_list_screen.dart';
 import 'email_config_screen.dart';
 import '../import/email_bill_select_screen.dart';
 import '../../services/database/email_config_db_service.dart';
+import 'quick_action_settings_screen.dart';
+import '../../services/quick_action_service.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -72,6 +75,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               // 功能设置
               _buildSectionHeader('功能设置'),
+              _buildBudgetManagementTile(),
+              _buildQuickActionSettingsTile(),
               _buildAISettingsTile(),
               _buildCategoryRulesTile(),
               _buildEncryptionTile(settingsProvider),
@@ -205,6 +210,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  /// 首页快捷操作设置
+  Widget _buildQuickActionSettingsTile() {
+    return FutureBuilder<List<dynamic>>(
+      future: QuickActionService().loadQuickActions(),
+      builder: (context, snapshot) {
+        final count = snapshot.data?.length ?? 0;
+        return ListTile(
+          leading: const Icon(Icons.dashboard_customize),
+          title: const Text('首页快捷操作'),
+          subtitle: Text('已选择 $count 个快捷操作'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const QuickActionSettingsScreen(),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// 预算管理
+  Widget _buildBudgetManagementTile() {
+    return ListTile(
+      leading: const Icon(Icons.account_balance_wallet),
+      title: const Text('预算管理'),
+      subtitle: const Text('设置和管理年度预算'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const BudgetOverviewScreen(),
+          ),
         );
       },
     );

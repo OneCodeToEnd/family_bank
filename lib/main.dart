@@ -5,6 +5,7 @@ import 'providers/account_provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/transaction_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/budget_provider.dart';
 import 'screens/account/account_list_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/transaction/transaction_list_screen.dart';
@@ -13,7 +14,17 @@ import 'screens/category/category_list_screen.dart';
 import 'screens/import/bill_import_screen.dart';
 import 'screens/analysis/analysis_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'screens/settings/quick_action_settings_screen.dart';
+import 'screens/settings/ai_settings_screen.dart';
+import 'screens/settings/email_config_screen.dart';
+import 'screens/member/member_list_screen.dart';
+import 'screens/category/category_rule_list_screen.dart';
+import 'screens/import/email_bill_select_screen.dart';
 import 'services/database/transaction_db_service.dart';
+import 'services/database/email_config_db_service.dart';
+import 'services/quick_action_service.dart';
+import 'models/quick_action.dart';
+import 'utils/app_logger.dart';
 
 void main() {
   runApp(const FamilyBankApp());
@@ -31,6 +42,7 @@ class FamilyBankApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => BudgetProvider()),
       ],
       child: Consumer<SettingsProvider>(
         builder: (context, settingsProvider, child) {
@@ -72,13 +84,23 @@ class _HomePageState extends State<HomePage> {
   bool _isInitialized = false;
   Map<String, dynamic>? _homeStatistics;
   bool _isLoadingStats = false;
+  late Future<List<QuickAction>> _quickActionsFuture;
+  final QuickActionService _quickActionService = QuickActionService();
 
   @override
   void initState() {
     super.initState();
+    _quickActionsFuture = _quickActionService.loadQuickActions();
     // 延迟到 build 之后再初始化
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeApp();
+    });
+  }
+
+  /// 刷新快捷操作配置
+  void _refreshQuickActions() {
+    setState(() {
+      _quickActionsFuture = _quickActionService.loadQuickActions();
     });
   }
 
@@ -91,6 +113,7 @@ class _HomePageState extends State<HomePage> {
       final categoryProvider = context.read<CategoryProvider>();
       final transactionProvider = context.read<TransactionProvider>();
       final settingsProvider = context.read<SettingsProvider>();
+      final budgetProvider = context.read<BudgetProvider>();
 
       await Future.wait([
         familyProvider.initialize(),
@@ -98,6 +121,7 @@ class _HomePageState extends State<HomePage> {
         categoryProvider.initialize(),
         transactionProvider.initialize(),
         settingsProvider.initialize(),
+        budgetProvider.initialize(),
       ]);
 
       setState(() {
@@ -107,7 +131,7 @@ class _HomePageState extends State<HomePage> {
       // 加载统计数据
       await _loadHomeStatistics();
     } catch (e) {
-      debugPrint('初始化失败: $e');
+      AppLogger.e('初始化失败', error: e);
     }
   }
 
@@ -128,7 +152,7 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (e) {
-      debugPrint('加载统计数据失败: $e');
+      AppLogger.e('加载统计数据失败', error: e);
       if (mounted) {
         setState(() {
           _isLoadingStats = false;
@@ -508,63 +532,72 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '快速操作',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildQuickActionButton(
-                  icon: Icons.account_balance_wallet,
-                  label: '账户管理',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AccountListScreen(),
-                      ),
-                    );
-                  },
+                Text(
+                  '快速操作',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                _buildQuickActionButton(
-                  icon: Icons.category,
-                  label: '分类管理',
-                  onTap: () {
-                    Navigator.push(
+                IconButton(
+                  icon: const Icon(Icons.settings, size: 20),
+                  tooltip: '设置快捷操作',
+                  onPressed: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const CategoryListScreen(),
+                        builder: (context) => const QuickActionSettingsScreen(),
                       ),
                     );
-                  },
-                ),
-                _buildQuickActionButton(
-                  icon: Icons.file_upload,
-                  label: '导入账单',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const BillImportScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildQuickActionButton(
-                  icon: Icons.analytics,
-                  label: '数据分析',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AnalysisScreen(),
-                      ),
-                    );
+                    // 返回后刷新快捷操作
+                    _refreshQuickActions();
                   },
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            // 使用 FutureBuilder 实时查询快捷操作配置
+            FutureBuilder<List<QuickAction>>(
+              future: _quickActionsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text('加载失败: ${snapshot.error}'),
+                  );
+                }
+
+                final actions = snapshot.data ?? [];
+
+                // 使用 GridView 支持 4-8 个按钮
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    childAspectRatio: 1.5,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: actions.length,
+                  itemBuilder: (context, index) {
+                    final action = actions[index];
+                    return _buildQuickActionButton(
+                      icon: action.icon,
+                      label: action.name,
+                      onTap: () => _navigateToScreen(action.routeName),
+                    );
+                  },
+                );
+              },
             ),
           ],
         ),
@@ -587,6 +620,88 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  /// 根据路由名称导航到对应页面
+  void _navigateToScreen(String routeName) {
+    late Widget screen;
+
+    switch (routeName) {
+      case 'AccountListScreen':
+        screen = const AccountListScreen();
+        break;
+      case 'CategoryListScreen':
+        screen = const CategoryListScreen();
+        break;
+      case 'BillImportScreen':
+        screen = const BillImportScreen();
+        break;
+      case 'AnalysisScreen':
+        screen = const AnalysisScreen();
+        break;
+      case 'TransactionFormScreen':
+        screen = const TransactionFormScreen();
+        break;
+      case 'TransactionListScreen':
+        screen = const TransactionListScreen();
+        break;
+      case 'MemberListScreen':
+        screen = const MemberListScreen();
+        break;
+      case 'AISettingsScreen':
+        screen = const AISettingsScreen();
+        break;
+      case 'CategoryRuleListScreen':
+        screen = const CategoryRuleListScreen();
+        break;
+      case 'EmailBillSelectScreen':
+        // 邮箱同步需要特殊处理
+        _navigateToEmailSync();
+        return;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('未知的页面: $routeName')),
+        );
+        return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => screen),
+    );
+  }
+
+  /// 邮箱同步特殊处理（需要检查配置）
+  Future<void> _navigateToEmailSync() async {
+    final dbService = EmailConfigDbService();
+    final hasConfig = await dbService.hasConfig();
+
+    if (!mounted) return;
+
+    if (hasConfig) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const EmailBillSelectScreen(),
+        ),
+      );
+    } else {
+      final result = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const EmailConfigScreen(),
+        ),
+      );
+
+      if (result == true && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const EmailBillSelectScreen(),
+          ),
+        );
+      }
+    }
   }
 
   /// 数据概览

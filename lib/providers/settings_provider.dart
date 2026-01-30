@@ -193,4 +193,5 @@ class SettingsProvider with ChangeNotifier {
     _clearError();
     notifyListeners();
   }
+
 }

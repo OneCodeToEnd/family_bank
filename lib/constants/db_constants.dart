@@ -2,7 +2,7 @@
 class DbConstants {
   // 数据库信息
   static const String dbName = 'family_bank.db';
-  static const int dbVersion = 6;
+  static const int dbVersion = 8;
 
   // 表名
   static const String tableFamilyGroups = 'family_groups';
@@ -12,6 +12,7 @@ class DbConstants {
   static const String tableTransactions = 'transactions';
   static const String tableCategoryRules = 'category_rules';
   static const String tableBudgets = 'budgets';
+  static const String tableAnnualBudgets = 'annual_budgets';
   static const String tableAppSettings = 'app_settings';
   static const String tableHttpLogs = 'http_logs';
   static const String tableEmailConfigs = 'email_configs';
@@ -89,6 +90,14 @@ class DbConstants {
   static const String columnBudgetStartDate = 'start_date';
   static const String columnBudgetEndDate = 'end_date';
   static const String columnBudgetIsActive = 'is_active';
+
+  // annual_budgets 表字段
+  static const String columnAnnualBudgetFamilyId = 'family_id';
+  static const String columnAnnualBudgetCategoryId = 'category_id';
+  static const String columnAnnualBudgetYear = 'year';
+  static const String columnAnnualBudgetType = 'type';
+  static const String columnAnnualBudgetAnnualAmount = 'annual_amount';
+  static const String columnAnnualBudgetMonthlyAmount = 'monthly_amount';
 
   // app_settings 表字段
   static const String columnSettingKey = 'key';

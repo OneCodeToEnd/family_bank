@@ -36,8 +36,13 @@ class _EmailBillSelectScreenState extends State<EmailBillSelectScreen> {
   @override
   void initState() {
     super.initState();
-    _initServices();
-    _searchEmails();
+    _initializeAndSearch();
+  }
+
+  /// 初始化服务并搜索邮件
+  Future<void> _initializeAndSearch() async {
+    await _initServices();
+    await _searchEmails();
   }
 
   /// 初始化服务

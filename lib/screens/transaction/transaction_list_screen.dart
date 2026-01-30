@@ -70,17 +70,15 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('记账本'),
-        backgroundColor: const Color(0xFF4CAF50), // 绿色主题
-        foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: Column(
         children: [
           // 绿色背景的顶部区域
           Container(
-            decoration: const BoxDecoration(
-              color: Color(0xFF4CAF50),
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(20),
                 bottomRight: Radius.circular(20),
               ),
@@ -106,8 +104,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToAddTransaction,
-        backgroundColor: const Color(0xFF4CAF50),
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -142,28 +139,28 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                    border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<int?>(
                       value: _selectedAccountId,
-                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
-                      dropdownColor: const Color(0xFF4CAF50),
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      icon: Icon(Icons.arrow_drop_down, color: Theme.of(context).colorScheme.onPrimaryContainer, size: 20),
+                      dropdownColor: Theme.of(context).colorScheme.primaryContainer,
+                      style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer, fontSize: 14),
                       isExpanded: true,
                       items: [
-                        const DropdownMenuItem(
+                        DropdownMenuItem(
                           value: null,
-                          child: Text('全部账户', style: TextStyle(color: Colors.white)),
+                          child: Text('全部账户', style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer)),
                         ),
                         ...accounts.map((account) {
                           return DropdownMenuItem(
                             value: account.id,
                             child: Text(
                               account.name,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
                               overflow: TextOverflow.ellipsis,
                             ),
                           );
@@ -198,23 +195,23 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: selected
-              ? Colors.white.withValues(alpha: 0.3)
-              : Colors.white.withValues(alpha: 0.1),
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)
+              : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: selected
-                ? Colors.white.withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.2),
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
+                : Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: Colors.white),
+            Icon(icon, size: 16, color: Theme.of(context).colorScheme.onPrimaryContainer),
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer, fontSize: 14),
             ),
           ],
         ),
@@ -251,13 +248,13 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                   children: [
                     Text(
                       DateFormat('yyyy年MM月').format(_selectedMonth),
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const Icon(Icons.arrow_drop_down, color: Colors.white, size: 24),
+                    Icon(Icons.arrow_drop_down, color: Theme.of(context).colorScheme.onPrimaryContainer, size: 24),
                   ],
                 ),
               ),
@@ -272,8 +269,8 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                       children: [
                         Text(
                           '总支出¥${totalExpense.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
                             fontSize: 14,
                           ),
                         ),
@@ -281,7 +278,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                         Text(
                           '总收入¥${totalIncome.toStringAsFixed(2)}',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
+                            color: Theme.of(context).colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
                             fontSize: 14,
                           ),
                         ),
@@ -319,14 +316,10 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                   style: TextStyle(color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton.icon(
+                  ElevatedButton.icon(
                   onPressed: _navigateToAddTransaction,
                   icon: const Icon(Icons.add),
                   label: const Text('添加账单'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
-                  ),
                 ),
               ],
             ),
@@ -557,14 +550,14 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     if (category == null) return Colors.grey;
 
     final name = category.name;
-    if (name.contains('餐饮')) return const Color(0xFF4CAF50);
+    if (name.contains('餐饮')) return Colors.green;
     if (name.contains('购物')) return const Color(0xFF2196F3);
     if (name.contains('交通')) return const Color(0xFFFF9800);
     if (name.contains('娱乐')) return const Color(0xFF00BCD4);
     if (name.contains('医疗')) return const Color(0xFFE91E63);
     if (name.contains('服务')) return const Color(0xFF9C27B0);
 
-    return const Color(0xFF4CAF50);
+    return Colors.green;
   }
 
   /// 获取筛选后的账单
@@ -777,14 +770,14 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF4CAF50) : Colors.grey[200],
+                        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[200],
                         borderRadius: BorderRadius.circular(8),
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         '$month月',
                         style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black87,
+                          color: isSelected ? Theme.of(context).colorScheme.onPrimary : Colors.black87,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
@@ -932,10 +925,6 @@ class _CategorySelectorSheetState extends State<_CategorySelectorSheet> {
                     widget.onConfirm(_tempSelectedIds);
                     Navigator.pop(context);
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
-                  ),
                   child: const Text('确定'),
                 ),
               ],
