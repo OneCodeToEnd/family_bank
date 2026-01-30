@@ -290,15 +290,6 @@ class _HomePageState extends State<HomePage> {
 
               // 快速操作
               _buildQuickActions(),
-              const SizedBox(height: 16),
-
-              // 数据概览
-              _buildDataOverview(
-                familyProvider,
-                accountProvider,
-                categoryProvider,
-                transactionProvider,
-              ),
             ],
           );
         },
@@ -918,44 +909,4 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// 数据概览
-  Widget _buildDataOverview(
-    FamilyProvider familyProvider,
-    AccountProvider accountProvider,
-    CategoryProvider categoryProvider,
-    TransactionProvider transactionProvider,
-  ) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '数据概览',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            _buildDataRow('家庭组', '${familyProvider.familyGroups.length}'),
-            _buildDataRow('家庭成员', '${familyProvider.familyMembers.length}'),
-            _buildDataRow('账户', '${accountProvider.accounts.length}'),
-            _buildDataRow('分类', '${categoryProvider.categories.length}'),
-            _buildDataRow('账单', '${transactionProvider.transactions.length}'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDataRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
 }
