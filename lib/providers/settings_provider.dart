@@ -5,14 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SettingsProvider with ChangeNotifier {
   // 设置键常量
   static const String _keyThemeMode = 'theme_mode';
-  static const String _keyEnableEncryption = 'enable_encryption';
   static const String _keyDefaultAccountId = 'default_account_id';
   static const String _keyDefaultCategoryId = 'default_category_id';
   static const String _keyAutoBackup = 'auto_backup';
 
   // 设置数据
   ThemeMode _themeMode = ThemeMode.system;
-  bool _enableEncryption = false;
   int? _defaultAccountId;
   int? _defaultCategoryId;
   bool _autoBackup = false;
@@ -23,7 +21,6 @@ class SettingsProvider with ChangeNotifier {
 
   // Getters
   ThemeMode get themeMode => _themeMode;
-  bool get enableEncryption => _enableEncryption;
   int? get defaultAccountId => _defaultAccountId;
   int? get defaultCategoryId => _defaultCategoryId;
   bool get autoBackup => _autoBackup;
@@ -46,7 +43,6 @@ class SettingsProvider with ChangeNotifier {
       }
 
       // 加载其他设置
-      _enableEncryption = prefs.getBool(_keyEnableEncryption) ?? false;
       _defaultAccountId = prefs.getInt(_keyDefaultAccountId);
       _defaultCategoryId = prefs.getInt(_keyDefaultCategoryId);
       _autoBackup = prefs.getBool(_keyAutoBackup) ?? false;
@@ -70,22 +66,6 @@ class SettingsProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _setError('保存主题设置失败: $e');
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  /// 设置数据加密开关
-  Future<void> setEnableEncryption(bool enable) async {
-    _setLoading(true);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyEnableEncryption, enable);
-      _enableEncryption = enable;
-      _clearError();
-      notifyListeners();
-    } catch (e) {
-      _setError('保存加密设置失败: $e');
     } finally {
       _setLoading(false);
     }
@@ -153,13 +133,11 @@ class SettingsProvider with ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyThemeMode);
-      await prefs.remove(_keyEnableEncryption);
       await prefs.remove(_keyDefaultAccountId);
       await prefs.remove(_keyDefaultCategoryId);
       await prefs.remove(_keyAutoBackup);
 
       _themeMode = ThemeMode.system;
-      _enableEncryption = false;
       _defaultAccountId = null;
       _defaultCategoryId = null;
       _autoBackup = false;

@@ -79,7 +79,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildQuickActionSettingsTile(),
               _buildAISettingsTile(),
               _buildCategoryRulesTile(),
-              _buildEncryptionTile(settingsProvider),
               _buildAutoBackupTile(settingsProvider),
               _buildDefaultAccountTile(),
               _buildDefaultCategoryTile(),
@@ -288,53 +287,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           MaterialPageRoute(
             builder: (context) => const CategoryRuleListScreen(),
           ),
-        );
-      },
-    );
-  }
-
-  /// 数据加密开关
-  Widget _buildEncryptionTile(SettingsProvider provider) {
-    return SwitchListTile(
-      secondary: const Icon(Icons.lock),
-      title: const Text('数据加密'),
-      subtitle: const Text('启用后将加密本地存储的数据'),
-      value: provider.enableEncryption,
-      onChanged: (value) {
-        _showEncryptionWarning(provider, value);
-      },
-    );
-  }
-
-  void _showEncryptionWarning(SettingsProvider provider, bool enable) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(enable ? '启用数据加密' : '关闭数据加密'),
-          content: Text(
-            enable
-                ? '启用数据加密后，本地存储的数据将被加密保护。\n\n注意：此功能目前处于实验阶段。'
-                : '关闭数据加密后，数据将以明文形式存储。\n\n确定要关闭吗？',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () {
-                provider.setEnableEncryption(enable);
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(enable ? '数据加密已启用' : '数据加密已关闭'),
-                  ),
-                );
-              },
-              child: const Text('确定'),
-            ),
-          ],
         );
       },
     );
