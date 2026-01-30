@@ -79,7 +79,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildQuickActionSettingsTile(),
               _buildAISettingsTile(),
               _buildCategoryRulesTile(),
-              _buildAutoBackupTile(settingsProvider),
+              // TODO: 自动备份功能待实现，暂时隐藏
+              // _buildAutoBackupTile(settingsProvider),
               _buildDefaultAccountTile(),
               _buildDefaultCategoryTile(),
 
@@ -293,6 +294,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// 自动备份开关
+  /// TODO: 功能待实现，暂时隐藏。需要实现：
+  /// 1. BackupService - 数据库导出服务
+  /// 2. 定时任务调度（workmanager）
+  /// 3. 备份文件管理和恢复功能
   Widget _buildAutoBackupTile(SettingsProvider provider) {
     return SwitchListTile(
       secondary: const Icon(Icons.backup),

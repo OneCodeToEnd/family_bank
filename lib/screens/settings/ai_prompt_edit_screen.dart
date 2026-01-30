@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/ai_classification_config.dart';
+import '../../theme/app_colors.dart';
 
 /// 提示词编辑界面
 class AIPromptEditScreen extends StatefulWidget {
@@ -83,8 +84,11 @@ class _AIPromptEditScreenState extends State<AIPromptEditScreen> {
   }
 
   Widget _buildInfoCard() {
+    final appColors = context.appColors;
+    final textTheme = Theme.of(context).textTheme;
+
     return Card(
-      color: Colors.blue.shade50,
+      color: appColors.infoContainer,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -92,26 +96,31 @@ class _AIPromptEditScreenState extends State<AIPromptEditScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.info_outline, size: 20, color: Colors.blue.shade700),
+                Icon(Icons.info_outline, size: 20, color: appColors.onInfoContainer),
                 const SizedBox(width: 8),
                 Text(
                   '提示词说明',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade700,
+                    color: appColors.onInfoContainer,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            const Text('系统提示词定义 AI 的角色和任务'),
-            const Text('用户提示词模板定义交易信息的格式'),
+            Text(
+              '系统提示词定义 AI 的角色和任务',
+              style: TextStyle(color: appColors.onInfoContainer),
+            ),
+            Text(
+              '用户提示词模板定义交易信息的格式',
+              style: TextStyle(color: appColors.onInfoContainer),
+            ),
             const SizedBox(height: 8),
             Text(
               '可用变量：{{description}}, {{counterparty}}, {{amount}}, {{type}}, {{categories}}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade700,
+              style: textTheme.bodySmall?.copyWith(
+                color: appColors.onInfoContainer.withValues(alpha: 0.8),
                 fontFamily: 'monospace',
               ),
             ),
@@ -185,6 +194,8 @@ class _AIPromptEditScreenState extends State<AIPromptEditScreen> {
   }
 
   void _resetToDefault() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -226,7 +237,7 @@ class _AIPromptEditScreenState extends State<AIPromptEditScreen> {
               });
               Navigator.pop(context);
             },
-            child: Text('重置', style: TextStyle(color: Colors.red.shade700)),
+            child: Text('重置', style: TextStyle(color: colorScheme.error)),
           ),
         ],
       ),
@@ -277,6 +288,9 @@ class _AIPromptEditScreenState extends State<AIPromptEditScreen> {
   }
 
   Widget _buildVariableItem(String variable, String description) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
@@ -284,20 +298,19 @@ class _AIPromptEditScreenState extends State<AIPromptEditScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.grey.shade200,
+              color: colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               variable,
-              style: const TextStyle(
+              style: textTheme.bodySmall?.copyWith(
                 fontFamily: 'monospace',
-                fontSize: 12,
               ),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(description, style: const TextStyle(fontSize: 14)),
+            child: Text(description, style: textTheme.bodyMedium),
           ),
         ],
       ),

@@ -7,6 +7,7 @@ import '../../constants/ai_model_constants.dart';
 import '../../services/ai/ai_config_service.dart';
 import '../../services/ai/ai_classifier_factory.dart';
 import '../../services/ai_model_config_service.dart';
+import '../../theme/app_colors.dart';
 import 'ai_prompt_edit_screen.dart';
 import 'ai_model_management_screen.dart';
 
@@ -163,9 +164,9 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
   }
 
   Widget _buildInfoCard() {
-    final colorScheme = Theme.of(context).colorScheme;
+    final appColors = context.appColors;
     return Card(
-      color: colorScheme.primaryContainer,
+      color: appColors.infoContainer,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -173,13 +174,13 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.info_outline, size: 20, color: colorScheme.onPrimaryContainer),
+                Icon(Icons.info_outline, size: 20, color: appColors.onInfoContainer),
                 const SizedBox(width: 8),
                 Text(
                   'AI 自动分类说明',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimaryContainer,
+                    color: appColors.onInfoContainer,
                   ),
                 ),
               ],
@@ -187,15 +188,15 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
             const SizedBox(height: 8),
             Text(
               '启用后，系统将使用AI自动为导入的交易分类',
-              style: TextStyle(color: colorScheme.onPrimaryContainer),
+              style: TextStyle(color: appColors.onInfoContainer),
             ),
             Text(
               '支持 DeepSeek 和通义千问两大AI服务商',
-              style: TextStyle(color: colorScheme.onPrimaryContainer),
+              style: TextStyle(color: appColors.onInfoContainer),
             ),
             Text(
               '需要您提供相应的 API Key',
-              style: TextStyle(color: colorScheme.onPrimaryContainer),
+              style: TextStyle(color: appColors.onInfoContainer),
             ),
           ],
         ),
@@ -343,45 +344,24 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
 
   Widget _buildTestResult() {
     final isSuccess = _testResult!.contains('成功');
-    final colorScheme = Theme.of(context).colorScheme;
-    final brightness = Theme.of(context).brightness;
-
-    // 根据主题亮度选择合适的颜色
-    final successBgColor = brightness == Brightness.light
-        ? Colors.green.shade50
-        : Colors.green.shade900.withOpacity(0.2);
-    final errorBgColor = brightness == Brightness.light
-        ? Colors.red.shade50
-        : Colors.red.shade900.withOpacity(0.2);
-    final successTextColor = brightness == Brightness.light
-        ? Colors.green.shade900
-        : Colors.green.shade100;
-    final errorTextColor = brightness == Brightness.light
-        ? Colors.red.shade900
-        : Colors.red.shade100;
-    final successIconColor = brightness == Brightness.light
-        ? Colors.green.shade700
-        : Colors.green.shade300;
-    final errorIconColor = brightness == Brightness.light
-        ? Colors.red.shade700
-        : Colors.red.shade300;
+    final appColors = context.appColors;
 
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSuccess ? successBgColor : errorBgColor,
+          color: isSuccess ? appColors.successContainer : Theme.of(context).colorScheme.errorContainer,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSuccess ? successIconColor : errorIconColor,
+            color: isSuccess ? appColors.successColor : Theme.of(context).colorScheme.error,
           ),
         ),
         child: Row(
           children: [
             Icon(
               isSuccess ? Icons.check_circle : Icons.error,
-              color: isSuccess ? successIconColor : errorIconColor,
+              color: isSuccess ? appColors.successColor : Theme.of(context).colorScheme.error,
               size: 20,
             ),
             const SizedBox(width: 8),
@@ -389,7 +369,7 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
               child: Text(
                 _testResult!,
                 style: TextStyle(
-                  color: isSuccess ? successTextColor : errorTextColor,
+                  color: isSuccess ? appColors.onSuccessContainer : Theme.of(context).colorScheme.onErrorContainer,
                 ),
               ),
             ),
@@ -474,11 +454,11 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       return const SizedBox.shrink();
     }
 
-    final colorScheme = Theme.of(context).colorScheme;
+    final appColors = context.appColors;
     final textTheme = Theme.of(context).textTheme;
 
     return Card(
-      color: colorScheme.primaryContainer,
+      color: appColors.infoContainer,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -486,13 +466,13 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.info_outline, size: 20, color: colorScheme.onPrimaryContainer),
+                Icon(Icons.info_outline, size: 20, color: appColors.onInfoContainer),
                 const SizedBox(width: 8),
                 Text(
                   '当前模型费用',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimaryContainer,
+                    color: appColors.onInfoContainer,
                   ),
                 ),
               ],
@@ -500,23 +480,23 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
             const SizedBox(height: 8),
             Text(
               '模型: ${currentModel.name}',
-              style: TextStyle(color: colorScheme.onPrimaryContainer),
+              style: TextStyle(color: appColors.onInfoContainer),
             ),
             if (currentModel.inputPrice != null)
               Text(
                 '• 输入: ¥${currentModel.inputPrice}/千tokens',
-                style: TextStyle(color: colorScheme.onPrimaryContainer),
+                style: TextStyle(color: appColors.onInfoContainer),
               ),
             if (currentModel.outputPrice != null)
               Text(
                 '• 输出: ¥${currentModel.outputPrice}/千tokens',
-                style: TextStyle(color: colorScheme.onPrimaryContainer),
+                style: TextStyle(color: appColors.onInfoContainer),
               ),
             const SizedBox(height: 4),
             Text(
               '注：实际费用取决于交易描述长度和分类数量',
               style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onPrimaryContainer.withOpacity(0.7),
+                color: appColors.onInfoContainer.withValues(alpha: 0.7),
               ),
             ),
           ],

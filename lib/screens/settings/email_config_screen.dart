@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/email_config.dart';
 import '../../services/database/email_config_db_service.dart';
 import '../../services/import/email_service.dart';
+import '../../theme/app_colors.dart';
 
 /// 邮箱配置页面
 class EmailConfigScreen extends StatefulWidget {
@@ -298,41 +299,49 @@ class _EmailConfigScreenState extends State<EmailConfigScreen> {
                   const SizedBox(height: 16),
 
                   // 常见邮箱设置提示
-                  Card(
-                    color: Colors.blue.shade50,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
+                  Builder(
+                    builder: (context) {
+                      final appColors = context.appColors;
+                      return Card(
+                        color: appColors.infoContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.info_outline, color: Colors.blue),
-                              SizedBox(width: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.info_outline, color: appColors.onInfoContainer),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '常见邮箱IMAP设置',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: appColors.onInfoContainer,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              _buildEmailPreset('QQ邮箱', 'imap.qq.com', '993'),
+                              _buildEmailPreset('163邮箱', 'imap.163.com', '993'),
+                              _buildEmailPreset('126邮箱', 'imap.126.com', '993'),
+                              _buildEmailPreset('Gmail', 'imap.gmail.com', '993'),
+                              _buildEmailPreset(
+                                  'Outlook', 'outlook.office365.com', '993'),
+                              const SizedBox(height: 12),
                               Text(
-                                '常见邮箱IMAP设置',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                                '注意：大部分邮箱需要开启IMAP服务并使用授权码，而非登录密码。',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: appColors.warningColor,
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          _buildEmailPreset('QQ邮箱', 'imap.qq.com', '993'),
-                          _buildEmailPreset('163邮箱', 'imap.163.com', '993'),
-                          _buildEmailPreset('126邮箱', 'imap.126.com', '993'),
-                          _buildEmailPreset('Gmail', 'imap.gmail.com', '993'),
-                          _buildEmailPreset(
-                              'Outlook', 'outlook.office365.com', '993'),
-                          const SizedBox(height: 12),
-                          const Text(
-                            '注意：大部分邮箱需要开启IMAP服务并使用授权码，而非登录密码。',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.orange,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
 

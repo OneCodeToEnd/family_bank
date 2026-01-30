@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/category_provider.dart';
 import '../../models/category.dart';
+import '../../theme/app_colors.dart';
 
 /// 添加/编辑分类页面
 class CategoryFormScreen extends StatefulWidget {
@@ -68,30 +69,36 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
           children: [
             // 父分类信息（如果有）
             if (hasParent)
-              Card(
-                color: Colors.blue.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.folder_open, color: Colors.blue),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              Builder(
+                builder: (context) {
+                  final appColors = context.appColors;
+                  return Card(
+                    color: appColors.infoContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
                         children: [
-                          const Text('父分类', style: TextStyle(fontSize: 12)),
-                          Text(
-                            widget.parentCategory!.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                          Icon(Icons.folder_open, color: appColors.onInfoContainer),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('父分类', style: TextStyle(fontSize: 12, color: appColors.onInfoContainer)),
+                              Text(
+                                widget.parentCategory!.name,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: appColors.onInfoContainer,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
             if (hasParent) const SizedBox(height: 16),
 

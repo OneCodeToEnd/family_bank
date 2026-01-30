@@ -80,27 +80,32 @@ class _MemberFormScreenState extends State<MemberFormScreen> {
                               _selectedAvatar = avatar;
                             });
                           },
-                          child: Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.blue.shade100
-                                  : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected
-                                    ? Colors.blue
-                                    : Colors.grey.shade300,
-                                width: isSelected ? 2 : 1,
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                avatar,
-                                style: const TextStyle(fontSize: 28),
-                              ),
-                            ),
+                          child: Builder(
+                            builder: (context) {
+                              final colorScheme = Theme.of(context).colorScheme;
+                              return Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? colorScheme.primaryContainer
+                                      : colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? colorScheme.primary
+                                        : colorScheme.outline,
+                                    width: isSelected ? 2 : 1,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    avatar,
+                                    style: const TextStyle(fontSize: 28),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         );
                       }).toList(),

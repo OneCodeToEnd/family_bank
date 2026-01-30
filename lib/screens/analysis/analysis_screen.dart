@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../providers/transaction_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../providers/account_provider.dart';
 import '../../widgets/category_hierarchy_stat_card.dart';
 
@@ -265,38 +266,43 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             child: Column(
               children: [
                 // 收支平衡
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: balance >= 0
-                          ? [Colors.green.shade400, Colors.green.shade600]
-                          : [Colors.red.shade400, Colors.red.shade600],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text(
-                        '收支平衡',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
+                Builder(
+                  builder: (context) {
+                    final appColors = context.appColors;
+                    return Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: balance >= 0
+                              ? [appColors.successColor.withValues(alpha: 0.8), appColors.successColor]
+                              : [Theme.of(context).colorScheme.error.withValues(alpha: 0.8), Theme.of(context).colorScheme.error],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '¥${balance.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            '收支平衡',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '¥${balance.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
 

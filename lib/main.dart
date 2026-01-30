@@ -27,6 +27,7 @@ import 'services/database/annual_budget_db_service.dart';
 import 'services/quick_action_service.dart';
 import 'models/quick_action.dart';
 import 'utils/app_logger.dart';
+import 'theme/app_colors.dart';
 
 void main() {
   runApp(const FamilyBankApp());
@@ -58,6 +59,9 @@ class FamilyBankApp extends StatelessWidget {
                 brightness: Brightness.light,
               ),
               useMaterial3: true,
+              extensions: const <ThemeExtension<dynamic>>[
+                AppColors.light,
+              ],
             ),
             darkTheme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
@@ -65,6 +69,9 @@ class FamilyBankApp extends StatelessWidget {
                 brightness: Brightness.dark,
               ),
               useMaterial3: true,
+              extensions: const <ThemeExtension<dynamic>>[
+                AppColors.dark,
+              ],
             ),
             home: const HomePage(),
           );

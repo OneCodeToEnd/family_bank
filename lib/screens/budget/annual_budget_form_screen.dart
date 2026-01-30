@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/category_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../models/category.dart';
 import '../../utils/category_icon_utils.dart';
 
@@ -79,24 +80,29 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
         child: Column(
           children: [
             // 说明卡片
-            Card(
-              margin: const EdgeInsets.all(16),
-              color: Colors.blue.shade50,
-              child: const Padding(
-                padding: EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blue),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '设置年度预算后，系统将自动计算月度预算（年度÷12）',
-                        style: TextStyle(fontSize: 14),
-                      ),
+            Builder(
+              builder: (context) {
+                final appColors = context.appColors;
+                return Card(
+                  margin: const EdgeInsets.all(16),
+                  color: appColors.infoContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, color: appColors.onInfoContainer),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '设置年度预算后，系统将自动计算月度预算（年度÷12）',
+                            style: TextStyle(fontSize: 14, color: appColors.onInfoContainer),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
 
             // 分类树形列表
@@ -369,21 +375,26 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
 
                 // 汇总按钮（仅父级分类显示）
                 if (hasChildren)
-                  Tooltip(
-                    message: '从子分类汇总',
-                    child: IconButton(
-                      icon: const Icon(Icons.calculate, size: 20),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 40,
-                        minHeight: 40,
-                      ),
-                      onPressed: () => _aggregateFromChildren(category),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.blue.shade50,
-                        foregroundColor: Colors.blue.shade700,
-                      ),
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final appColors = context.appColors;
+                      return Tooltip(
+                        message: '从子分类汇总',
+                        child: IconButton(
+                          icon: const Icon(Icons.calculate, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 40,
+                            minHeight: 40,
+                          ),
+                          onPressed: () => _aggregateFromChildren(category),
+                          style: IconButton.styleFrom(
+                            backgroundColor: appColors.infoContainer,
+                            foregroundColor: appColors.infoColor,
+                          ),
+                        ),
+                      );
+                    },
                   ),
               ],
             ),

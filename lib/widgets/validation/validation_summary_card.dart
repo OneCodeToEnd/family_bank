@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/validation_result.dart';
+import '../../theme/app_colors.dart';
 
 /// 验证摘要卡片
 ///
@@ -73,13 +74,15 @@ class _ValidationSummaryCardState extends State<ValidationSummaryCard> {
 
   /// 获取背景颜色
   Color _getBackgroundColor() {
+    final appColors = context.appColors;
+
     switch (widget.validationResult.status) {
       case ValidationStatus.perfect:
-        return Colors.green.shade50;
+        return appColors.successContainer;
       case ValidationStatus.warning:
-        return Colors.orange.shade50;
+        return appColors.warningContainer;
       case ValidationStatus.error:
-        return Colors.red.shade50;
+        return Theme.of(context).colorScheme.errorContainer;
     }
   }
 
@@ -88,22 +91,23 @@ class _ValidationSummaryCardState extends State<ValidationSummaryCard> {
     IconData icon;
     String title;
     Color iconColor;
+    final appColors = context.appColors;
 
     switch (widget.validationResult.status) {
       case ValidationStatus.perfect:
         icon = Icons.check_circle;
         title = '验证通过';
-        iconColor = Colors.green;
+        iconColor = appColors.successColor;
         break;
       case ValidationStatus.warning:
         icon = Icons.warning;
         title = '发现轻微差异';
-        iconColor = Colors.orange;
+        iconColor = appColors.warningColor;
         break;
       case ValidationStatus.error:
         icon = Icons.error;
         title = '发现重大差异';
-        iconColor = Colors.red;
+        iconColor = Theme.of(context).colorScheme.error;
         break;
     }
 
@@ -127,12 +131,13 @@ class _ValidationSummaryCardState extends State<ValidationSummaryCard> {
   Widget _buildComparisonTable() {
     final fileSummary = widget.validationResult.fileSummary;
     final calculatedSummary = widget.validationResult.calculatedSummary;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: colorScheme.outline),
       ),
       child: Column(
         children: [
@@ -175,10 +180,12 @@ class _ValidationSummaryCardState extends State<ValidationSummaryCard> {
 
   /// 构建表格标题行
   Widget _buildTableHeader() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(8),
           topRight: Radius.circular(8),
@@ -223,12 +230,15 @@ class _ValidationSummaryCardState extends State<ValidationSummaryCard> {
     bool isMatch, {
     bool isLast = false,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final appColors = context.appColors;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            : Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Row(
         children: [
@@ -254,7 +264,7 @@ class _ValidationSummaryCardState extends State<ValidationSummaryCard> {
           ),
           Icon(
             isMatch ? Icons.check_circle : Icons.cancel,
-            color: isMatch ? Colors.green : Colors.red,
+            color: isMatch ? appColors.successColor : colorScheme.error,
             size: 20,
           ),
         ],
@@ -264,12 +274,15 @@ class _ValidationSummaryCardState extends State<ValidationSummaryCard> {
 
   /// 构建问题列表
   Widget _buildIssuesList() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final appColors = context.appColors;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: colorScheme.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,7 +297,7 @@ class _ValidationSummaryCardState extends State<ValidationSummaryCard> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, size: 16, color: Colors.orange),
+                    Icon(Icons.info_outline, size: 16, color: appColors.warningColor),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -302,22 +315,27 @@ class _ValidationSummaryCardState extends State<ValidationSummaryCard> {
 
   /// 构建建议信息
   Widget _buildSuggestion() {
+    final appColors = context.appColors;
+    final textTheme = Theme.of(context).textTheme;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
+        color: appColors.infoContainer,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
+        border: Border.all(color: appColors.infoColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.lightbulb_outline, color: Colors.blue.shade700, size: 20),
+          Icon(Icons.lightbulb_outline, color: appColors.onInfoContainer, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               widget.validationResult.suggestion!,
-              style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+              style: textTheme.bodySmall?.copyWith(
+                color: appColors.onInfoContainer,
+              ),
             ),
           ),
         ],

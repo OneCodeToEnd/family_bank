@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/account_provider.dart';
+import '../../theme/app_colors.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/family_provider.dart';
 import '../../models/transaction.dart' as model;
@@ -55,37 +56,47 @@ class TransactionDetailScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             children: [
               // 金额卡片
-              Card(
-                color: isIncome ? Colors.green.shade50 : Colors.red.shade50,
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      Icon(
-                        isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-                        size: 48,
-                        color: isIncome ? Colors.green : Colors.red,
+              Builder(
+                builder: (context) {
+                  final appColors = context.appColors;
+                  final colorScheme = Theme.of(context).colorScheme;
+
+                  final bgColor = isIncome ? appColors.successContainer : colorScheme.errorContainer;
+                  final fgColor = isIncome ? appColors.successColor : colorScheme.error;
+
+                  return Card(
+                    color: bgColor,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Icon(
+                            isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+                            size: 48,
+                            color: fgColor,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            isIncome ? '收入' : '支出',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: fgColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '¥${transaction.amount.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: fgColor,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        isIncome ? '收入' : '支出',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: isIncome ? Colors.green : Colors.red,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '¥${transaction.amount.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          color: isIncome ? Colors.green : Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 16),
 

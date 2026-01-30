@@ -3,6 +3,7 @@ import '../../models/category_rule.dart';
 import '../../models/category.dart';
 import '../../services/database/category_rule_db_service.dart';
 import '../../services/database/database_service.dart';
+import '../../theme/app_colors.dart';
 import '../../services/category/category_learning_service.dart';
 import 'category_rule_form_screen.dart';
 
@@ -169,9 +170,14 @@ class _CategoryRuleListScreenState extends State<CategoryRuleListScreen> {
   }
 
   Widget _buildStatItem(String label, int value) {
-    return Chip(
-      label: Text('$label: $value'),
-      backgroundColor: Colors.blue.shade50,
+    return Builder(
+      builder: (context) {
+        final appColors = context.appColors;
+        return Chip(
+          label: Text('$label: $value'),
+          backgroundColor: appColors.infoContainer,
+        );
+      },
     );
   }
 

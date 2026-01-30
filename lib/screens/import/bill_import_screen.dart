@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
+import '../../theme/app_colors.dart';
 import '../../providers/account_provider.dart';
 import '../../services/import/bill_import_service.dart';
 import '../../services/bill_validation_service.dart';
@@ -325,40 +326,45 @@ class _BillImportScreenState extends State<BillImportScreen> {
 
   /// 使用说明
   Widget _buildInstructions() {
+    final appColors = context.appColors;
+
     return Card(
-      color: Colors.blue.shade50,
+      color: appColors.infoContainer,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.blue),
-                SizedBox(width: 8),
+                Icon(Icons.info_outline, color: appColors.onInfoContainer),
+                const SizedBox(width: 8),
                 Text(
                   '使用说明',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: appColors.onInfoContainer,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '支付宝账单导出：\n'
               '1. 打开支付宝APP → 我的 → 账单\n'
               '2. 右上角设置 → 开具交易流水证明\n'
               '3. 选择时间范围 → 申请邮箱接收\n'
               '4. 下载CSV文件',
-              style: TextStyle(fontSize: 12),
+              style: TextStyle(fontSize: 12, color: appColors.onInfoContainer),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               '微信账单导出：\n'
               '1. 打开微信 → 我 → 服务 → 钱包\n'
               '2. 账单 → 常见问题 → 下载账单\n'
               '3. 选择时间范围 → 申请邮箱接收\n'
               '4. 下载XLSX文件（需解压）',
-              style: TextStyle(fontSize: 12),
+              style: TextStyle(fontSize: 12, color: appColors.onInfoContainer),
             ),
           ],
         ),
