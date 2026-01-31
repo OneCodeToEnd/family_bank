@@ -220,42 +220,56 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
     AppLogger.d('[ImportConfirmationScreen] _availableAccounts: ${_availableAccounts.length}');
     AppLogger.d('[ImportConfirmationScreen] _selectedAccountId: $_selectedAccountId');
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('确认导入'),
-        actions: [
-          if (!_processing && _matchResults != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ElevatedButton(
-                onPressed: _saving ? null : _saveAll,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  elevation: 2,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text(
-                        '全部确认',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-              ),
+    return PopScope(
+      canPop: !_processing && !_saving,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && (_processing || _saving)) {
+          AppLogger.w('[ImportConfirmationScreen] 阻止返回：正在处理中');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('请等待处理完成'),
+              duration: Duration(seconds: 2),
             ),
-        ],
+          );
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('确认导入'),
+          actions: [
+            if (!_processing && _matchResults != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _saveAll,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    elevation: 2,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          '全部确认',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                ),
+              ),
+          ],
+        ),
+        body: _buildBody(),
       ),
-      body: _buildBody(),
     );
   }
 
@@ -449,39 +463,69 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              value: _selectedAccountId,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              isExpanded: true,
-              items: _availableAccounts.map((account) {
-                final isRecommended = _accountMatchService.isRecommendedAccount(account, platform);
-                return DropdownMenuItem<int>(
-                  value: account.id,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isRecommended)
-                        const Icon(Icons.star, size: 16, color: Colors.amber),
-                      if (isRecommended) const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          _accountMatchService.getAccountDisplayName(account),
-                          overflow: TextOverflow.ellipsis,
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    value: _selectedAccountId,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    isExpanded: true,
+                    items: _availableAccounts.map((account) {
+                      final isRecommended = _accountMatchService.isRecommendedAccount(account, platform);
+                      return DropdownMenuItem<int>(
+                        value: account.id,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isRecommended)
+                              const Icon(Icons.star, size: 16, color: Colors.amber),
+                            if (isRecommended) const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                _accountMatchService.getAccountDisplayName(account),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      AppLogger.d('[ImportConfirmationScreen] 账户选择变更: $value');
+                      setState(() {
+                        _selectedAccountId = value;
+                      });
+                    },
                   ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                AppLogger.d('[ImportConfirmationScreen] 账户选择变更: $value');
-                setState(() {
-                  _selectedAccountId = value;
-                });
-              },
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () async {
+                    AppLogger.i('[ImportConfirmationScreen] 点击创建账户按钮');
+                    // 跳转到账户创建页面
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AccountFormScreen(),
+                      ),
+                    );
+                    // 如果创建成功，重新加载账户列表
+                    if (result == true && mounted) {
+                      AppLogger.i('[ImportConfirmationScreen] 账户创建成功，重新加载');
+                      await _loadAccounts();
+                    }
+                  },
+                  icon: const Icon(Icons.add_circle_outline),
+                  tooltip: '创建新账户',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                    foregroundColor: Colors.blue,
+                  ),
+                ),
+              ],
             ),
             if (hasSuggestion)
               Padding(
