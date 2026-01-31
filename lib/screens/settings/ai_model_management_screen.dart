@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/ai_model_config.dart';
 import '../../services/ai_model_config_service.dart';
+import '../../services/ai/ai_model_test_service.dart';
 import '../../constants/ai_model_constants.dart';
 import '../../widgets/ai/ai_model_dialog.dart';
 
@@ -14,8 +15,11 @@ class AIModelManagementScreen extends StatefulWidget {
 
 class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
   final AIModelConfigService _configService = AIModelConfigService();
+  final AIModelTestService _testService = AIModelTestService();
   List<AIModelConfig> _models = [];
   bool _isLoading = true;
+  String? _testingModelId; // 正在测试的模型ID
+  final Map<String, String> _testResults = {}; // 模型ID -> 测试结果
 
   @override
   void initState() {
@@ -126,6 +130,52 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
     }
   }
 
+  Future<void> _testModel(AIModelConfig model) async {
+    setState(() {
+      _testingModelId = model.id;
+      _testResults.remove(model.id); // 清除旧的测试结果
+    });
+
+    try {
+      // 获取解密后的 API Key
+      final decryptedApiKey = _configService.getDecryptedApiKey(model);
+
+      // 执行测试
+      final result = await _testService.testModelConfig(
+        model,
+        decryptedApiKey,
+      );
+
+      setState(() {
+        _testResults[model.id] = result.message;
+        _testingModelId = null;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: result.success ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _testResults[model.id] = '✗ 测试失败: $e';
+        _testingModelId = null;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('测试失败: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -186,6 +236,44 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
+                            // 显示测试状态
+                            if (_testingModelId == model.id)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      '测试中...',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else if (_testResults.containsKey(model.id))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  _testResults[model.id]!,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _testResults[model.id]!
+                                            .startsWith('✓')
+                                        ? Colors.green
+                                        : Colors.red,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                         trailing: Row(
@@ -205,7 +293,9 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
                               ),
                             PopupMenuButton<String>(
                               onSelected: (value) {
-                                if (value == 'edit') {
+                                if (value == 'test') {
+                                  _testModel(model);
+                                } else if (value == 'edit') {
                                   _editModel(model);
                                 } else if (value == 'delete') {
                                   _deleteModel(model);
@@ -213,12 +303,34 @@ class _AIModelManagementScreenState extends State<AIModelManagementScreen> {
                               },
                               itemBuilder: (context) => [
                                 const PopupMenuItem(
+                                  value: 'test',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.wifi_tethering, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('测试连接'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
                                   value: 'edit',
-                                  child: Text('编辑'),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('编辑'),
+                                    ],
+                                  ),
                                 ),
                                 const PopupMenuItem(
                                   value: 'delete',
-                                  child: Text('删除'),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('删除'),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),

@@ -208,32 +208,9 @@ class _AIPromptEditScreenState extends State<AIPromptEditScreen> {
           ),
           TextButton(
             onPressed: () {
-              // 使用反射获取默认值比较困难，这里直接硬编码
-              const defaultSystemPrompt = '''你是一个专业的账单分类助手。
-根据交易信息，从给定的分类列表中选择最合适的分类。
-请仔细分析交易描述、对方和金额，给出准确的分类建议。
-必须返回JSON格式的结果。''';
-
-              const defaultUserPromptTemplate = '''
-交易信息：
-- 描述：{{description}}
-- 对方：{{counterparty}}
-- 金额：{{amount}} 元
-- 类型：{{type}}
-
-可选分类：
-{{categories}}
-
-请返回JSON格式：
-{
-  "categoryId": <分类ID>,
-  "confidence": <置信度0-1>,
-  "reason": "<选择理由>"
-}''';
-
               setState(() {
-                _systemPromptController.text = defaultSystemPrompt;
-                _userPromptController.text = defaultUserPromptTemplate;
+                _systemPromptController.text = AIClassificationConfig.defaultSystemPrompt;
+                _userPromptController.text = AIClassificationConfig.defaultUserPromptTemplate;
               });
               Navigator.pop(context);
             },

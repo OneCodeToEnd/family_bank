@@ -116,6 +116,7 @@ class DatabaseService {
         ${DbConstants.columnTransactionIsConfirmed} INTEGER DEFAULT 0,
         ${DbConstants.columnTransactionNotes} TEXT,
         ${DbConstants.columnTransactionHash} TEXT,
+        ${DbConstants.columnTransactionCounterparty} TEXT,
         ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
         ${DbConstants.columnUpdatedAt} INTEGER NOT NULL,
         FOREIGN KEY (${DbConstants.columnTransactionAccountId})
@@ -135,6 +136,13 @@ class DatabaseService {
         ${DbConstants.columnRuleIsActive} INTEGER DEFAULT 1,
         ${DbConstants.columnRuleMatchCount} INTEGER DEFAULT 0,
         ${DbConstants.columnRuleSource} TEXT DEFAULT 'user',
+        ${DbConstants.columnRuleMatchType} TEXT DEFAULT 'exact',
+        ${DbConstants.columnRuleMatchPosition} TEXT DEFAULT NULL,
+        ${DbConstants.columnRuleMinConfidence} REAL DEFAULT 0.8,
+        ${DbConstants.columnRuleCounterparty} TEXT DEFAULT NULL,
+        ${DbConstants.columnRuleAliases} TEXT DEFAULT '[]',
+        ${DbConstants.columnRuleAutoLearn} INTEGER DEFAULT 0,
+        ${DbConstants.columnRuleCaseSensitive} INTEGER DEFAULT 0,
         ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
         ${DbConstants.columnUpdatedAt} INTEGER NOT NULL,
         FOREIGN KEY (${DbConstants.columnRuleCategoryId})
@@ -277,6 +285,18 @@ class DatabaseService {
     );
     await db.execute(
       'CREATE INDEX idx_rule_category ON ${DbConstants.tableCategoryRules}(${DbConstants.columnRuleCategoryId})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_rule_match_type ON ${DbConstants.tableCategoryRules}(${DbConstants.columnRuleMatchType})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_rule_counterparty ON ${DbConstants.tableCategoryRules}(${DbConstants.columnRuleCounterparty})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_rule_priority ON ${DbConstants.tableCategoryRules}(${DbConstants.columnRulePriority} DESC)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_transaction_counterparty ON ${DbConstants.tableTransactions}(${DbConstants.columnTransactionCounterparty})',
     );
 
     // 年度预算表索引

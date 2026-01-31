@@ -21,18 +21,24 @@ class AIClassificationConfig {
     this.modelId = '',
     this.confidenceThreshold = 0.7,
     this.autoLearn = true,
-    this.systemPrompt = _defaultSystemPrompt,
-    this.userPromptTemplate = _defaultUserPromptTemplate,
+    this.systemPrompt = defaultSystemPrompt,
+    this.userPromptTemplate = defaultUserPromptTemplate,
   });
 
   // ==================== 默认提示词 ====================
 
-  static const String _defaultSystemPrompt = '''你是一个专业的账单分类助手。
+  /// 默认系统提示词（公开以便 UI 层使用）
+  static const String defaultSystemPrompt = '''你是一个专业的账单分类助手。
 根据交易信息，从给定的分类列表中选择最合适的分类。
 请仔细分析交易描述、对方和金额，给出准确的分类建议。
-必须返回JSON格式的结果。''';
+必须返回JSON格式的结果。
+要求项
+1. 符合 json 格式
+2. 选择理由限制在 15 个字符
+''';
 
-  static const String _defaultUserPromptTemplate = '''
+  /// 默认用户提示词模板（公开以便 UI 层使用）
+  static const String defaultUserPromptTemplate = '''
 交易信息：
 - 描述：{{description}}
 - 对方：{{counterparty}}
@@ -78,9 +84,9 @@ class AIClassificationConfig {
       confidenceThreshold:
           (json['confidence_threshold'] as num?)?.toDouble() ?? 0.7,
       autoLearn: json['auto_learn'] as bool? ?? true,
-      systemPrompt: json['system_prompt'] as String? ?? _defaultSystemPrompt,
+      systemPrompt: json['system_prompt'] as String? ?? defaultSystemPrompt,
       userPromptTemplate: json['user_prompt_template'] as String? ??
-          _defaultUserPromptTemplate,
+          defaultUserPromptTemplate,
     );
   }
 
@@ -109,8 +115,8 @@ class AIClassificationConfig {
   /// 重置提示词为默认值
   AIClassificationConfig resetPrompts() {
     return copyWith(
-      systemPrompt: _defaultSystemPrompt,
-      userPromptTemplate: _defaultUserPromptTemplate,
+      systemPrompt: defaultSystemPrompt,
+      userPromptTemplate: defaultUserPromptTemplate,
     );
   }
 

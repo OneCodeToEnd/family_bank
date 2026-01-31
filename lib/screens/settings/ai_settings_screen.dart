@@ -6,6 +6,7 @@ import '../../models/ai_model_config.dart';
 import '../../constants/ai_model_constants.dart';
 import '../../services/ai/ai_config_service.dart';
 import '../../services/ai/ai_classifier_factory.dart';
+import '../../services/ai/ai_model_test_service.dart';
 import '../../services/ai_model_config_service.dart';
 import '../../theme/app_colors.dart';
 import 'ai_prompt_edit_screen.dart';
@@ -22,6 +23,7 @@ class AISettingsScreen extends StatefulWidget {
 class _AISettingsScreenState extends State<AISettingsScreen> {
   final AIConfigService _configService = AIConfigService();
   final AIModelConfigService _modelConfigService = AIModelConfigService();
+  final AIModelTestService _testService = AIModelTestService();
   AIClassificationConfig? _config;
   List<AIModel>? _availableModels;
   bool _loading = true;
@@ -588,37 +590,21 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
   }
 
   Future<void> _testConnection() async {
-    if (_apiKeyController.text.isEmpty) {
-      setState(() {
-        _testResult = '请先输入 API Key';
-      });
-      return;
-    }
-
-    if (_config!.modelId.isEmpty) {
-      setState(() {
-        _testResult = '请先选择模型';
-      });
-      return;
-    }
-
     setState(() {
       _testing = true;
       _testResult = null;
     });
 
     try {
-      final service = AIClassifierFactory.create(
-        _config!.provider,
-        _apiKeyController.text,
-        _config!.modelId,
-        _config!,
+      final result = await _testService.testWithCredentials(
+        provider: _config!.provider,
+        apiKey: _apiKeyController.text,
+        modelId: _config!.modelId,
+        config: _config,
       );
 
-      final success = await service.testConnection();
-
       setState(() {
-        _testResult = success ? '✓ 连接成功' : '✗ 连接失败，请检查 API Key';
+        _testResult = result.message;
       });
     } catch (e) {
       setState(() {

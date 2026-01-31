@@ -327,49 +327,62 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
                   },
                 ),
 
-                // 分类图标和名称
-                CircleAvatar(
-                  backgroundColor: color.withValues(alpha: 0.1),
-                  child: Icon(iconData, color: color, size: 20),
-                ),
-                const SizedBox(width: 12),
+                // 分类图标和名称（可点击）
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              category.name,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedCategories[category.id!] = !isSelected;
+                      });
+                    },
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          backgroundColor: color.withValues(alpha: 0.1),
+                          child: Icon(iconData, color: color, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      category.name,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (isAggregated) ...[
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '(汇总)',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (isAggregated) ...[
-                            const SizedBox(width: 4),
-                            Text(
-                              '(汇总)',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      if (monthlyAmount > 0)
-                        Text(
-                          '年度: ${annualAmount.toStringAsFixed(0)}元 → ${monthlyAmount.toStringAsFixed(0)}元/月',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isAggregated ? Colors.blue[700] : Colors.grey[600],
+                              if (monthlyAmount > 0)
+                                Text(
+                                  '年度: ${annualAmount.toStringAsFixed(0)}元 → ${monthlyAmount.toStringAsFixed(0)}元/月',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isAggregated ? Colors.blue[700] : Colors.grey[600],
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 

@@ -104,7 +104,7 @@ class _AIModelDialogState extends State<AIModelDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save model: $e')),
+          SnackBar(content: Text('保存模型失败: $e')),
         );
       }
     } finally {
@@ -119,7 +119,7 @@ class _AIModelDialogState extends State<AIModelDialog> {
     final isEditing = widget.model != null;
 
     return AlertDialog(
-      title: Text(isEditing ? 'Edit AI Model' : 'Add AI Model'),
+      title: Text(isEditing ? '编辑AI模型' : '添加AI模型'),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -131,12 +131,12 @@ class _AIModelDialogState extends State<AIModelDialog> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Model Name *',
-                  hintText: 'e.g., DeepSeek Chat',
+                  labelText: '模型名称 *',
+                  hintText: '例如：DeepSeek Chat',
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a model name';
+                    return '请输入模型名称';
                   }
                   return null;
                 },
@@ -147,7 +147,7 @@ class _AIModelDialogState extends State<AIModelDialog> {
               DropdownButtonFormField<String>(
                 value: _selectedProvider,
                 decoration: const InputDecoration(
-                  labelText: 'Provider *',
+                  labelText: '服务商 *',
                 ),
                 items: AIModelConstants.providerDisplayNames.entries
                     .map((entry) => DropdownMenuItem(
@@ -170,13 +170,13 @@ class _AIModelDialogState extends State<AIModelDialog> {
               TextFormField(
                 controller: _modelNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Model ID *',
-                  hintText: 'e.g., deepseek-chat',
+                  labelText: '模型ID *',
+                  hintText: '例如：deepseek-chat',
                 ),
                 enabled: !isEditing,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a model ID';
+                    return '请输入模型ID';
                   }
                   return null;
                 },
@@ -187,8 +187,8 @@ class _AIModelDialogState extends State<AIModelDialog> {
               TextFormField(
                 controller: _apiKeyController,
                 decoration: InputDecoration(
-                  labelText: isEditing ? 'API Key (leave empty to keep current)' : 'API Key *',
-                  hintText: 'Enter your API key',
+                  labelText: isEditing ? 'API密钥（留空保持不变）' : 'API密钥 *',
+                  hintText: '请输入API密钥',
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureApiKey ? Icons.visibility : Icons.visibility_off,
@@ -203,10 +203,10 @@ class _AIModelDialogState extends State<AIModelDialog> {
                 obscureText: _obscureApiKey,
                 validator: (value) {
                   if (!isEditing && (value == null || value.trim().isEmpty)) {
-                    return 'Please enter an API key';
+                    return '请输入API密钥';
                   }
                   if (value != null && value.trim().isNotEmpty && value.trim().length < 10) {
-                    return 'API key seems too short';
+                    return 'API密钥长度过短';
                   }
                   return null;
                 },
@@ -217,14 +217,14 @@ class _AIModelDialogState extends State<AIModelDialog> {
               TextFormField(
                 controller: _baseUrlController,
                 decoration: const InputDecoration(
-                  labelText: 'Base URL (optional)',
-                  hintText: 'e.g., https://api.deepseek.com',
+                  labelText: '基础URL（可选）',
+                  hintText: '例如：https://api.deepseek.com',
                 ),
                 validator: (value) {
                   if (value != null &&
                       value.trim().isNotEmpty &&
                       !value.startsWith('http')) {
-                    return 'URL must start with http:// or https://';
+                    return 'URL必须以http://或https://开头';
                   }
                   return null;
                 },
@@ -233,7 +233,7 @@ class _AIModelDialogState extends State<AIModelDialog> {
 
               // Set as Active
               CheckboxListTile(
-                title: const Text('Set as active model'),
+                title: const Text('设为活跃模型'),
                 value: _isActive,
                 onChanged: (value) {
                   setState(() {
@@ -249,7 +249,7 @@ class _AIModelDialogState extends State<AIModelDialog> {
       actions: [
         TextButton(
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: const Text('取消'),
         ),
         ElevatedButton(
           onPressed: _isLoading ? null : _save,
@@ -259,7 +259,7 @@ class _AIModelDialogState extends State<AIModelDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(isEditing ? 'Update' : 'Add'),
+              : Text(isEditing ? '更新' : '添加'),
         ),
       ],
     );
