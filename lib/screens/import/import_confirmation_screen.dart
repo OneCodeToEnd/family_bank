@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../models/transaction.dart';
 import '../../models/category.dart';
+import '../../models/account.dart';
 import '../../models/category_match_result.dart';
 import '../../models/import_result.dart';
 import '../../services/category/batch_classification_service.dart';
 import '../../services/category/category_learning_service.dart';
 import '../../services/database/transaction_db_service.dart';
 import '../../services/database/database_service.dart';
+import '../../services/account_match_service.dart';
 import '../../widgets/validation/validation_summary_card.dart';
 import '../../widgets/transaction_detail_sheet.dart';
 
@@ -30,9 +32,12 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
   final BatchClassificationService _classificationService = BatchClassificationService();
   final CategoryLearningService _learningService = CategoryLearningService();
   final TransactionDbService _transactionDbService = TransactionDbService();
+  final AccountMatchService _accountMatchService = AccountMatchService();
 
   List<CategoryMatchResult?>? _matchResults;
   Map<int, Category> _categoryMap = {};
+  List<Account> _availableAccounts = [];
+  int? _selectedAccountId;
   bool _processing = false;
   bool _saving = false;
   int _currentProgress = 0;
@@ -53,7 +58,36 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
   @override
   void initState() {
     super.initState();
-    _startClassification();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    // 加载账户列表
+    await _loadAccounts();
+    // 开始分类
+    await _startClassification();
+  }
+
+  /// 加载账户列表
+  Future<void> _loadAccounts() async {
+    try {
+      final platform = _importResult?.platform;
+      _availableAccounts = await _accountMatchService.matchAccounts(platform);
+
+      // 设置默认选中的账户
+      if (_importResult?.suggestedAccountId != null) {
+        _selectedAccountId = _importResult!.suggestedAccountId;
+      } else if (_availableAccounts.isNotEmpty) {
+        _selectedAccountId = _availableAccounts.first.id;
+      }
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      // 加载失败，使用默认值
+      _selectedAccountId = _transactions.isNotEmpty ? _transactions.first.accountId : null;
+    }
   }
 
   Future<void> _startClassification() async {
@@ -218,6 +252,10 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
 
     return CustomScrollView(
       slivers: [
+        // 账户选择卡片
+        SliverToBoxAdapter(
+          child: _buildAccountSelector(),
+        ),
         // 显示验证结果（如果有）
         if (_importResult?.validationResult != null)
           SliverToBoxAdapter(
@@ -252,6 +290,103 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
     );
   }
 
+  /// 构建账户选择器
+  Widget _buildAccountSelector() {
+    if (_availableAccounts.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final platform = _importResult?.platform;
+    final hasSuggestion = _importResult?.hasSuggestedAccount ?? false;
+
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.account_balance_wallet, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  '选择账户',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (hasSuggestion) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                    ),
+                    child: const Text(
+                      '智能推荐',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              value: _selectedAccountId,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: _availableAccounts.map((account) {
+                final isRecommended = _accountMatchService.isRecommendedAccount(account, platform);
+                return DropdownMenuItem<int>(
+                  value: account.id,
+                  child: Row(
+                    children: [
+                      if (isRecommended)
+                        const Icon(Icons.star, size: 16, color: Colors.amber),
+                      if (isRecommended) const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          _accountMatchService.getAccountDisplayName(account),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedAccountId = value;
+                });
+              },
+            ),
+            if (hasSuggestion)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '已根据账单平台智能推荐账户',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildProcessingView() {
     return Center(
       child: Column(
@@ -283,6 +418,12 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
   }
 
   Future<void> _saveAll() async {
+    // 检查是否选择了账户
+    if (_selectedAccountId == null) {
+      _showError('请选择一个账户');
+      return;
+    }
+
     setState(() {
       _saving = true;
     });
@@ -300,8 +441,9 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
         final matchResult = _matchResults![i];
 
         if (matchResult?.categoryId != null) {
-          // 更新交易分类
+          // 更新交易分类和账户
           final updated = transaction.copyWith(
+            accountId: _selectedAccountId!,
             categoryId: matchResult!.categoryId,
             isConfirmed: matchResult.confidence >= 0.8,
             updatedAt: DateTime.now(),
@@ -318,8 +460,12 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
             learnedCount++;
           }
         } else {
-          // 没有分类的也保存，保持未分类状态
-          transactionsToSave.add(transaction);
+          // 没有分类的也保存，但更新账户ID
+          final updated = transaction.copyWith(
+            accountId: _selectedAccountId!,
+            updatedAt: DateTime.now(),
+          );
+          transactionsToSave.add(updated);
         }
       }
 

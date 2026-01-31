@@ -11,6 +11,8 @@ import '../../services/import/bill_import_service.dart';
 import '../../services/bill_validation_service.dart';
 import '../../services/ai/ai_classifier_factory.dart';
 import '../../services/ai/ai_config_service.dart';
+import '../../services/account_match_service.dart';
+import '../../utils/app_logger.dart';
 import 'import_confirmation_screen.dart';
 import '../settings/email_config_screen.dart';
 
@@ -27,6 +29,7 @@ class _EmailBillSelectScreenState extends State<EmailBillSelectScreen> {
   final _unzipService = UnzipService();
   late BillImportService _billImportService;
   final _dbService = EmailConfigDbService();
+  final _accountMatchService = AccountMatchService();
 
   List<BillEmailItem> _emails = [];
   bool _isLoading = false;
@@ -216,18 +219,37 @@ class _EmailBillSelectScreenState extends State<EmailBillSelectScreen> {
     }
   }
 
-  /// 解析文件（带验证）
+  /// 解析文件（带验证和智能账户匹配）
   Future<ImportResult> _parseFileWithValidation(File file, String platform) async {
+    AppLogger.i('[EmailBillSelectScreen] 开始解析文件: ${file.path}, 平台: $platform');
+
     final extension = file.path.split('.').last.toLowerCase();
 
+    // 获取推荐的账户ID
+    final suggestedAccountId = await _accountMatchService.getSuggestedAccountId(platform);
+    AppLogger.i('[EmailBillSelectScreen] 推荐账户ID: $suggestedAccountId');
+
+    // 使用推荐的账户ID或默认值1
+    final accountId = suggestedAccountId ?? 1;
+
+    ImportResult result;
     if (extension == 'csv' && platform == 'alipay') {
-      return await _billImportService.importAlipayCSVWithValidation(file, 1);
+      result = await _billImportService.importAlipayCSVWithValidation(file, accountId);
     } else if ((extension == 'xlsx' || extension == 'xls') &&
         platform == 'wechat') {
-      return await _billImportService.importWeChatExcelWithValidation(file, 1);
+      result = await _billImportService.importWeChatExcelWithValidation(file, accountId);
+    } else {
+      throw Exception('不支持的文件格式: $extension');
     }
 
-    throw Exception('不支持的文件格式: $extension');
+    // 返回带有推荐账户信息的结果
+    return ImportResult(
+      transactions: result.transactions,
+      validationResult: result.validationResult,
+      source: result.source,
+      suggestedAccountId: suggestedAccountId,
+      platform: platform,
+    );
   }
 
   @override
