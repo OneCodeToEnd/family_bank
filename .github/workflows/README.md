@@ -59,13 +59,13 @@ git push origin v1.0.0
 ## ⚙️ 配置说明
 
 ### Flutter 版本
-当前配置使用 Flutter 3.24.5 stable 版本。如需更改：
+当前配置使用 Flutter 3.27.1 stable 版本。如需更改：
 
 ```yaml
 - name: Setup Flutter
   uses: subosito/flutter-action@v2
   with:
-    flutter-version: '3.24.5'  # 修改此处
+    flutter-version: '3.27.1'  # 修改此处
     channel: 'stable'
 ```
 
