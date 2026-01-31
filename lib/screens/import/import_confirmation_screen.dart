@@ -12,6 +12,7 @@ import '../../services/account_match_service.dart';
 import '../../widgets/validation/validation_summary_card.dart';
 import '../../widgets/transaction_detail_sheet.dart';
 import '../account/account_form_screen.dart';
+import '../../utils/app_logger.dart';
 
 /// 导入确认界面
 /// 显示导入的交易和自动匹配的分类结果
@@ -59,39 +60,61 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
   @override
   void initState() {
     super.initState();
+    AppLogger.i('[ImportConfirmationScreen] initState 开始');
+    AppLogger.d('[ImportConfirmationScreen] transactions 数量: ${_transactions.length}');
+    AppLogger.d('[ImportConfirmationScreen] importResult: $_importResult');
     _initializeData();
   }
 
   Future<void> _initializeData() async {
-    // 加载账户列表
-    await _loadAccounts();
-    // 开始分类
-    await _startClassification();
+    AppLogger.i('[ImportConfirmationScreen] _initializeData 开始');
+    try {
+      // 加载账户列表
+      await _loadAccounts();
+      AppLogger.i('[ImportConfirmationScreen] 账户加载完成，数量: ${_availableAccounts.length}');
+      // 开始分类
+      await _startClassification();
+      AppLogger.i('[ImportConfirmationScreen] 分类完成');
+    } catch (e) {
+      AppLogger.e('[ImportConfirmationScreen] _initializeData 失败', error: e);
+    }
   }
 
   /// 加载账户列表
   Future<void> _loadAccounts() async {
+    AppLogger.i('[ImportConfirmationScreen] _loadAccounts 开始');
     try {
       final platform = _importResult?.platform;
+      AppLogger.d('[ImportConfirmationScreen] platform: $platform');
+
       _availableAccounts = await _accountMatchService.matchAccounts(platform);
+      AppLogger.i('[ImportConfirmationScreen] 匹配到 ${_availableAccounts.length} 个账户');
 
       // 设置默认选中的账户
       if (_importResult?.suggestedAccountId != null) {
         _selectedAccountId = _importResult!.suggestedAccountId;
+        AppLogger.d('[ImportConfirmationScreen] 使用推荐账户ID: $_selectedAccountId');
       } else if (_availableAccounts.isNotEmpty) {
         _selectedAccountId = _availableAccounts.first.id;
+        AppLogger.d('[ImportConfirmationScreen] 使用第一个账户ID: $_selectedAccountId');
+      } else {
+        AppLogger.w('[ImportConfirmationScreen] 没有可用账户');
       }
 
       if (mounted) {
         setState(() {});
+        AppLogger.d('[ImportConfirmationScreen] setState 完成');
       }
     } catch (e) {
+      AppLogger.e('[ImportConfirmationScreen] _loadAccounts 失败', error: e);
       // 加载失败，使用默认值
       _selectedAccountId = _transactions.isNotEmpty ? _transactions.first.accountId : null;
+      AppLogger.d('[ImportConfirmationScreen] 使用默认账户ID: $_selectedAccountId');
     }
   }
 
   Future<void> _startClassification() async {
+    AppLogger.i('[ImportConfirmationScreen] _startClassification 开始');
     setState(() {
       _processing = true;
     });
@@ -99,11 +122,13 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
     try {
       // 加载分类数据
       await _loadCategories();
+      AppLogger.i('[ImportConfirmationScreen] 分类数据加载完成，数量: ${_categoryMap.length}');
 
       // 批量分类
       final result = await _classificationService.classifyBatch(
         _transactions,
         onProgress: (current, total, status) {
+          AppLogger.d('[ImportConfirmationScreen] 分类进度: $current/$total - $status');
           if (mounted) {
             setState(() {
               _currentProgress = current;
@@ -116,6 +141,9 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
         batchSize: 20,
       );
 
+      AppLogger.i('[ImportConfirmationScreen] 批量分类完成');
+      AppLogger.d('[ImportConfirmationScreen] 成功: ${result.successCount}, 失败: ${result.failedCount}');
+
       if (mounted) {
         setState(() {
           _matchResults = result.results;
@@ -126,6 +154,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
         _showResultDialog(result);
       }
     } catch (e) {
+      AppLogger.e('[ImportConfirmationScreen] _startClassification 失败', error: e);
       if (mounted) {
         setState(() {
           _processing = false;
@@ -185,6 +214,12 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppLogger.d('[ImportConfirmationScreen] build 调用');
+    AppLogger.d('[ImportConfirmationScreen] _processing: $_processing');
+    AppLogger.d('[ImportConfirmationScreen] _matchResults: ${_matchResults?.length}');
+    AppLogger.d('[ImportConfirmationScreen] _availableAccounts: ${_availableAccounts.length}');
+    AppLogger.d('[ImportConfirmationScreen] _selectedAccountId: $_selectedAccountId');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('确认导入'),
@@ -225,13 +260,19 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
   }
 
   Widget _buildBody() {
+    AppLogger.d('[ImportConfirmationScreen] _buildBody 调用');
+
     if (_processing) {
+      AppLogger.d('[ImportConfirmationScreen] 显示处理中视图');
       return _buildProcessingView();
     }
 
     if (_matchResults == null) {
+      AppLogger.w('[ImportConfirmationScreen] _matchResults 为 null，显示加载失败');
       return const Center(child: Text('加载失败'));
     }
+
+    AppLogger.d('[ImportConfirmationScreen] 构建正常视图');
 
     // 创建索引列表并排序：失败的分类排在前面
     final sortedIndices = List.generate(_transactions.length, (i) => i);
@@ -293,11 +334,15 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
 
   /// 构建账户选择器
   Widget _buildAccountSelector() {
+    AppLogger.d('[ImportConfirmationScreen] _buildAccountSelector 调用');
+    AppLogger.d('[ImportConfirmationScreen] _availableAccounts.length: ${_availableAccounts.length}');
+
     final platform = _importResult?.platform;
     final hasSuggestion = _importResult?.hasSuggestedAccount ?? false;
 
     // 如果没有可用账户，显示提示卡片
     if (_availableAccounts.isEmpty) {
+      AppLogger.w('[ImportConfirmationScreen] 没有可用账户，显示提示卡片');
       return Card(
         margin: const EdgeInsets.all(16),
         color: Colors.orange.shade50,
@@ -335,6 +380,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () async {
+                    AppLogger.i('[ImportConfirmationScreen] 点击创建账户按钮');
                     // 跳转到账户创建页面
                     final result = await Navigator.push(
                       context,
@@ -344,6 +390,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
                     );
                     // 如果创建成功，重新加载账户列表
                     if (result == true && mounted) {
+                      AppLogger.i('[ImportConfirmationScreen] 账户创建成功，重新加载');
                       await _loadAccounts();
                     }
                   },
@@ -361,6 +408,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
       );
     }
 
+    AppLogger.d('[ImportConfirmationScreen] 显示账户选择器');
     return Card(
       margin: const EdgeInsets.all(16),
       child: Padding(
@@ -427,6 +475,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
                 );
               }).toList(),
               onChanged: (value) {
+                AppLogger.d('[ImportConfirmationScreen] 账户选择变更: $value');
                 setState(() {
                   _selectedAccountId = value;
                 });
