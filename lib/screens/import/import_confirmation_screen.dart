@@ -11,6 +11,7 @@ import '../../services/database/database_service.dart';
 import '../../services/account_match_service.dart';
 import '../../widgets/validation/validation_summary_card.dart';
 import '../../widgets/transaction_detail_sheet.dart';
+import '../account/account_form_screen.dart';
 
 /// 导入确认界面
 /// 显示导入的交易和自动匹配的分类结果
@@ -292,12 +293,73 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
 
   /// 构建账户选择器
   Widget _buildAccountSelector() {
-    if (_availableAccounts.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
     final platform = _importResult?.platform;
     final hasSuggestion = _importResult?.hasSuggestedAccount ?? false;
+
+    // 如果没有可用账户，显示提示卡片
+    if (_availableAccounts.isEmpty) {
+      return Card(
+        margin: const EdgeInsets.all(16),
+        color: Colors.orange.shade50,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '没有可用的账户',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '导入账单前需要先创建一个账户。建议创建与账单平台对应的账户类型。',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.orange.shade800,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    // 跳转到账户创建页面
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AccountFormScreen(),
+                      ),
+                    );
+                    // 如果创建成功，重新加载账户列表
+                    if (result == true && mounted) {
+                      await _loadAccounts();
+                    }
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('创建账户'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Card(
       margin: const EdgeInsets.all(16),
