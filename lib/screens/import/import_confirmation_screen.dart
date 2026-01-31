@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import '../../models/transaction.dart';
 import '../../models/category.dart';
 import '../../models/account.dart';
@@ -395,8 +396,8 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     AppLogger.i('[ImportConfirmationScreen] 点击创建账户按钮（无账户提示）');
-                    // 使用 Future.microtask 避免在鼠标事件处理期间调用 setState
-                    Future.microtask(() async {
+                    // 使用 addPostFrameCallback 确保在当前帧完成后再执行导航
+                    SchedulerBinding.instance.addPostFrameCallback((_) async {
                       if (!mounted) return;
                       // 跳转到账户创建页面
                       final result = await Navigator.push(
@@ -406,6 +407,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
                         ),
                       );
                       // 如果创建成功，重新加载账户列表
+                      // 新创建的账户会自动排在最前面（按创建时间倒序）
                       if (result == true && mounted) {
                         AppLogger.i('[ImportConfirmationScreen] 账户创建成功，重新加载');
                         await _loadAccounts();
@@ -509,8 +511,8 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
                 IconButton(
                   onPressed: () {
                     AppLogger.i('[ImportConfirmationScreen] 点击创建账户按钮');
-                    // 使用 Future.microtask 避免在鼠标事件处理期间调用 setState
-                    Future.microtask(() async {
+                    // 使用 addPostFrameCallback 确保在当前帧完成后再执行导航
+                    SchedulerBinding.instance.addPostFrameCallback((_) async {
                       if (!mounted) return;
                       // 跳转到账户创建页面
                       final result = await Navigator.push(
@@ -520,6 +522,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
                         ),
                       );
                       // 如果创建成功，重新加载账户列表
+                      // 新创建的账户会自动排在最前面（按创建时间倒序）
                       if (result == true && mounted) {
                         AppLogger.i('[ImportConfirmationScreen] 账户创建成功，重新加载');
                         await _loadAccounts();

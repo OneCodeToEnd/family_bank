@@ -331,7 +331,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
     if (!mounted) return;
 
     if (success) {
-      Navigator.pop(context);
+      Navigator.pop(context, true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(isEditing ? '账户已更新' : '账户已添加'),
