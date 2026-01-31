@@ -7,7 +7,7 @@ import 'providers/transaction_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/budget_provider.dart';
 import 'providers/home_provider.dart';
-import 'screens/home/home_page.dart';
+import 'screens/app_initializer.dart';
 import 'theme/app_colors.dart';
 
 // 条件导入：仅在非 Web 平台导入
@@ -62,7 +62,7 @@ class FamilyBankApp extends StatelessWidget {
                 AppColors.dark,
               ],
             ),
-            home: const HomePage(),
+            home: const AppInitializer(),
           );
         },
       ),

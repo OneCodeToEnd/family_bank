@@ -16,6 +16,8 @@ import '../import/email_bill_select_screen.dart';
 import '../../services/database/email_config_db_service.dart';
 import 'quick_action_settings_screen.dart';
 import '../../services/quick_action_service.dart';
+import '../onboarding/onboarding_screen.dart';
+import '../../services/onboarding/onboarding_service.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -96,6 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               // 关于
               _buildSectionHeader('关于'),
+              _buildOnboardingTile(),
               _buildAboutTile(),
               _buildVersionTile(),
             ],
@@ -695,6 +698,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// 新手引导
+  Widget _buildOnboardingTile() {
+    return ListTile(
+      leading: const Icon(Icons.school),
+      title: const Text('新手引导'),
+      subtitle: const Text('重新查看应用使用教程'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: _showOnboarding,
+    );
+  }
+
   /// 关于
   Widget _buildAboutTile() {
     return ListTile(
@@ -702,6 +716,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: const Text('关于账清'),
       trailing: const Icon(Icons.chevron_right),
       onTap: _showAboutDialog,
+    );
+  }
+
+  /// 显示新手引导
+  void _showOnboarding() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('重新查看引导'),
+        content: const Text('这将重新显示新手引导教程，帮助你了解应用的使用方法。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              // 重置引导状态
+              final onboardingService = OnboardingService();
+              await onboardingService.resetOnboarding();
+
+              if (!mounted) return;
+              navigator.pop(); // 关闭对话框
+
+              // 跳转到引导页面
+              navigator.push(
+                MaterialPageRoute(
+                  builder: (_) => const OnboardingScreen(),
+                ),
+              );
+            },
+            child: const Text('开始'),
+          ),
+        ],
+      ),
     );
   }
 

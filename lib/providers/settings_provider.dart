@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/database/database_service.dart';
+import '../constants/db_constants.dart';
 
 /// 设置状态管理
 class SettingsProvider with ChangeNotifier {
@@ -8,6 +10,9 @@ class SettingsProvider with ChangeNotifier {
   static const String _keyDefaultAccountId = 'default_account_id';
   static const String _keyDefaultCategoryId = 'default_category_id';
   static const String _keyAutoBackup = 'auto_backup';
+  static const String _keyMigrated = 'settings_migrated_to_db';
+
+  final DatabaseService _dbService = DatabaseService();
 
   // 设置数据
   ThemeMode _themeMode = ThemeMode.system;
@@ -27,25 +32,62 @@ class SettingsProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  /// 初始化 - 从本地存储加载设置
+  /// 初始化 - 从数据库加载设置
   Future<void> initialize() async {
     _setLoading(true);
     try {
-      final prefs = await SharedPreferences.getInstance();
+      // 首次运行时从 SharedPreferences 迁移数据
+      await _migrateFromSharedPreferences();
+
+      final db = await _dbService.database;
 
       // 加载主题模式
-      final themeModeString = prefs.getString(_keyThemeMode);
-      if (themeModeString != null) {
+      final themeModeResult = await db.query(
+        DbConstants.tableAppSettings,
+        where: '${DbConstants.columnSettingKey} = ?',
+        whereArgs: [_keyThemeMode],
+      );
+      if (themeModeResult.isNotEmpty) {
+        final themeModeString = themeModeResult.first[DbConstants.columnSettingValue] as String;
         _themeMode = ThemeMode.values.firstWhere(
           (mode) => mode.toString() == themeModeString,
           orElse: () => ThemeMode.system,
         );
       }
 
-      // 加载其他设置
-      _defaultAccountId = prefs.getInt(_keyDefaultAccountId);
-      _defaultCategoryId = prefs.getInt(_keyDefaultCategoryId);
-      _autoBackup = prefs.getBool(_keyAutoBackup) ?? false;
+      // 加载默认账户ID
+      final accountResult = await db.query(
+        DbConstants.tableAppSettings,
+        where: '${DbConstants.columnSettingKey} = ?',
+        whereArgs: [_keyDefaultAccountId],
+      );
+      if (accountResult.isNotEmpty) {
+        _defaultAccountId = int.tryParse(
+          accountResult.first[DbConstants.columnSettingValue] as String,
+        );
+      }
+
+      // 加载默认分类ID
+      final categoryResult = await db.query(
+        DbConstants.tableAppSettings,
+        where: '${DbConstants.columnSettingKey} = ?',
+        whereArgs: [_keyDefaultCategoryId],
+      );
+      if (categoryResult.isNotEmpty) {
+        _defaultCategoryId = int.tryParse(
+          categoryResult.first[DbConstants.columnSettingValue] as String,
+        );
+      }
+
+      // 加载自动备份开关
+      final backupResult = await db.query(
+        DbConstants.tableAppSettings,
+        where: '${DbConstants.columnSettingKey} = ?',
+        whereArgs: [_keyAutoBackup],
+      );
+      if (backupResult.isNotEmpty) {
+        _autoBackup = backupResult.first[DbConstants.columnSettingValue] == '1';
+      }
 
       _clearError();
     } catch (e) {
@@ -55,12 +97,90 @@ class SettingsProvider with ChangeNotifier {
     }
   }
 
+  /// 从 SharedPreferences 迁移数据到数据库（一次性操作）
+  Future<void> _migrateFromSharedPreferences() async {
+    try {
+      final db = await _dbService.database;
+
+      // 检查是否已经迁移过
+      final migratedResult = await db.query(
+        DbConstants.tableAppSettings,
+        where: '${DbConstants.columnSettingKey} = ?',
+        whereArgs: [_keyMigrated],
+      );
+
+      if (migratedResult.isNotEmpty) {
+        return; // 已经迁移过
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      // 迁移主题模式
+      final themeModeString = prefs.getString(_keyThemeMode);
+      if (themeModeString != null) {
+        await db.rawInsert('''
+          INSERT OR REPLACE INTO ${DbConstants.tableAppSettings}
+            (${DbConstants.columnSettingKey}, ${DbConstants.columnSettingValue}, ${DbConstants.columnUpdatedAt})
+          VALUES (?, ?, ?)
+        ''', [_keyThemeMode, themeModeString, now]);
+      }
+
+      // 迁移默认账户ID
+      final defaultAccountId = prefs.getInt(_keyDefaultAccountId);
+      if (defaultAccountId != null) {
+        await db.rawInsert('''
+          INSERT OR REPLACE INTO ${DbConstants.tableAppSettings}
+            (${DbConstants.columnSettingKey}, ${DbConstants.columnSettingValue}, ${DbConstants.columnUpdatedAt})
+          VALUES (?, ?, ?)
+        ''', [_keyDefaultAccountId, defaultAccountId.toString(), now]);
+      }
+
+      // 迁移默认分类ID
+      final defaultCategoryId = prefs.getInt(_keyDefaultCategoryId);
+      if (defaultCategoryId != null) {
+        await db.rawInsert('''
+          INSERT OR REPLACE INTO ${DbConstants.tableAppSettings}
+            (${DbConstants.columnSettingKey}, ${DbConstants.columnSettingValue}, ${DbConstants.columnUpdatedAt})
+          VALUES (?, ?, ?)
+        ''', [_keyDefaultCategoryId, defaultCategoryId.toString(), now]);
+      }
+
+      // 迁移自动备份开关
+      final autoBackup = prefs.getBool(_keyAutoBackup);
+      if (autoBackup != null) {
+        await db.rawInsert('''
+          INSERT OR REPLACE INTO ${DbConstants.tableAppSettings}
+            (${DbConstants.columnSettingKey}, ${DbConstants.columnSettingValue}, ${DbConstants.columnUpdatedAt})
+          VALUES (?, ?, ?)
+        ''', [_keyAutoBackup, autoBackup ? '1' : '0', now]);
+      }
+
+      // 标记为已迁移
+      await db.rawInsert('''
+        INSERT OR REPLACE INTO ${DbConstants.tableAppSettings}
+          (${DbConstants.columnSettingKey}, ${DbConstants.columnSettingValue}, ${DbConstants.columnUpdatedAt})
+        VALUES (?, ?, ?)
+      ''', [_keyMigrated, '1', now]);
+    } catch (e) {
+      // 迁移失败不影响正常使用
+      debugPrint('Settings migration failed: $e');
+    }
+  }
+
   /// 设置主题模式
   Future<void> setThemeMode(ThemeMode mode) async {
     _setLoading(true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyThemeMode, mode.toString());
+      final db = await _dbService.database;
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      await db.rawInsert('''
+        INSERT OR REPLACE INTO ${DbConstants.tableAppSettings}
+          (${DbConstants.columnSettingKey}, ${DbConstants.columnSettingValue}, ${DbConstants.columnUpdatedAt})
+        VALUES (?, ?, ?)
+      ''', [_keyThemeMode, mode.toString(), now]);
+
       _themeMode = mode;
       _clearError();
       notifyListeners();
@@ -75,12 +195,23 @@ class SettingsProvider with ChangeNotifier {
   Future<void> setDefaultAccount(int? accountId) async {
     _setLoading(true);
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final db = await _dbService.database;
+
       if (accountId != null) {
-        await prefs.setInt(_keyDefaultAccountId, accountId);
+        final now = DateTime.now().millisecondsSinceEpoch;
+        await db.rawInsert('''
+          INSERT OR REPLACE INTO ${DbConstants.tableAppSettings}
+            (${DbConstants.columnSettingKey}, ${DbConstants.columnSettingValue}, ${DbConstants.columnUpdatedAt})
+          VALUES (?, ?, ?)
+        ''', [_keyDefaultAccountId, accountId.toString(), now]);
       } else {
-        await prefs.remove(_keyDefaultAccountId);
+        await db.delete(
+          DbConstants.tableAppSettings,
+          where: '${DbConstants.columnSettingKey} = ?',
+          whereArgs: [_keyDefaultAccountId],
+        );
       }
+
       _defaultAccountId = accountId;
       _clearError();
       notifyListeners();
@@ -95,12 +226,23 @@ class SettingsProvider with ChangeNotifier {
   Future<void> setDefaultCategory(int? categoryId) async {
     _setLoading(true);
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final db = await _dbService.database;
+
       if (categoryId != null) {
-        await prefs.setInt(_keyDefaultCategoryId, categoryId);
+        final now = DateTime.now().millisecondsSinceEpoch;
+        await db.rawInsert('''
+          INSERT OR REPLACE INTO ${DbConstants.tableAppSettings}
+            (${DbConstants.columnSettingKey}, ${DbConstants.columnSettingValue}, ${DbConstants.columnUpdatedAt})
+          VALUES (?, ?, ?)
+        ''', [_keyDefaultCategoryId, categoryId.toString(), now]);
       } else {
-        await prefs.remove(_keyDefaultCategoryId);
+        await db.delete(
+          DbConstants.tableAppSettings,
+          where: '${DbConstants.columnSettingKey} = ?',
+          whereArgs: [_keyDefaultCategoryId],
+        );
       }
+
       _defaultCategoryId = categoryId;
       _clearError();
       notifyListeners();
@@ -115,8 +257,15 @@ class SettingsProvider with ChangeNotifier {
   Future<void> setAutoBackup(bool enable) async {
     _setLoading(true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_keyAutoBackup, enable);
+      final db = await _dbService.database;
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      await db.rawInsert('''
+        INSERT OR REPLACE INTO ${DbConstants.tableAppSettings}
+          (${DbConstants.columnSettingKey}, ${DbConstants.columnSettingValue}, ${DbConstants.columnUpdatedAt})
+        VALUES (?, ?, ?)
+      ''', [_keyAutoBackup, enable ? '1' : '0', now]);
+
       _autoBackup = enable;
       _clearError();
       notifyListeners();
@@ -131,11 +280,18 @@ class SettingsProvider with ChangeNotifier {
   Future<void> resetAllSettings() async {
     _setLoading(true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_keyThemeMode);
-      await prefs.remove(_keyDefaultAccountId);
-      await prefs.remove(_keyDefaultCategoryId);
-      await prefs.remove(_keyAutoBackup);
+      final db = await _dbService.database;
+
+      await db.delete(
+        DbConstants.tableAppSettings,
+        where: '${DbConstants.columnSettingKey} IN (?, ?, ?, ?)',
+        whereArgs: [
+          _keyThemeMode,
+          _keyDefaultAccountId,
+          _keyDefaultCategoryId,
+          _keyAutoBackup,
+        ],
+      );
 
       _themeMode = ThemeMode.system;
       _defaultAccountId = null;
