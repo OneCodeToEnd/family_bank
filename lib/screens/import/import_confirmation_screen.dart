@@ -393,20 +393,24 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () async {
-                    AppLogger.i('[ImportConfirmationScreen] 点击创建账户按钮');
-                    // 跳转到账户创建页面
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AccountFormScreen(),
-                      ),
-                    );
-                    // 如果创建成功，重新加载账户列表
-                    if (result == true && mounted) {
-                      AppLogger.i('[ImportConfirmationScreen] 账户创建成功，重新加载');
-                      await _loadAccounts();
-                    }
+                  onPressed: () {
+                    AppLogger.i('[ImportConfirmationScreen] 点击创建账户按钮（无账户提示）');
+                    // 使用 Future.microtask 避免在鼠标事件处理期间调用 setState
+                    Future.microtask(() async {
+                      if (!mounted) return;
+                      // 跳转到账户创建页面
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AccountFormScreen(),
+                        ),
+                      );
+                      // 如果创建成功，重新加载账户列表
+                      if (result == true && mounted) {
+                        AppLogger.i('[ImportConfirmationScreen] 账户创建成功，重新加载');
+                        await _loadAccounts();
+                      }
+                    });
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('创建账户'),
@@ -503,20 +507,24 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  onPressed: () async {
+                  onPressed: () {
                     AppLogger.i('[ImportConfirmationScreen] 点击创建账户按钮');
-                    // 跳转到账户创建页面
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AccountFormScreen(),
-                      ),
-                    );
-                    // 如果创建成功，重新加载账户列表
-                    if (result == true && mounted) {
-                      AppLogger.i('[ImportConfirmationScreen] 账户创建成功，重新加载');
-                      await _loadAccounts();
-                    }
+                    // 使用 Future.microtask 避免在鼠标事件处理期间调用 setState
+                    Future.microtask(() async {
+                      if (!mounted) return;
+                      // 跳转到账户创建页面
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const AccountFormScreen(),
+                        ),
+                      );
+                      // 如果创建成功，重新加载账户列表
+                      if (result == true && mounted) {
+                        AppLogger.i('[ImportConfirmationScreen] 账户创建成功，重新加载');
+                        await _loadAccounts();
+                      }
+                    });
                   },
                   icon: const Icon(Icons.add_circle_outline),
                   tooltip: '创建新账户',
