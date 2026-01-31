@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:io' show Platform;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'providers/family_provider.dart';
 import 'providers/account_provider.dart';
 import 'providers/category_provider.dart';
@@ -12,14 +10,13 @@ import 'providers/home_provider.dart';
 import 'screens/home/home_page.dart';
 import 'theme/app_colors.dart';
 
+// 条件导入：仅在非 Web 平台导入
+import 'services/database/database_init_stub.dart'
+    if (dart.library.io) 'services/database/database_init_io.dart';
+
 void main() {
-  // 初始化桌面平台的数据库工厂
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    // 初始化 FFI
-    sqfliteFfiInit();
-    // 设置全局数据库工厂为 FFI 实现
-    databaseFactory = databaseFactoryFfi;
-  }
+  // 初始化数据库（桌面平台需要 FFI 支持）
+  initializeDatabaseFactory();
 
   runApp(const FamilyBankApp());
 }

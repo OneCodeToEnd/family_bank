@@ -57,39 +57,6 @@ jobs:
           name: android-aab
           path: family-bank-android.aab
 
-  build-web:
-    name: Build Web
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.27.1'
-          channel: 'stable'
-          cache: true
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Build Web
-        run: flutter build web --release --web-renderer canvaskit --no-tree-shake-icons
-
-      - name: Package Web build
-        run: |
-          cd build/web
-          zip -r ../../family-bank-web.zip .
-          cd ../..
-
-      - name: Upload Web artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: web
-          path: family-bank-web.zip
-
   build-linux:
     name: Build Linux
     runs-on: ubuntu-latest
@@ -167,7 +134,7 @@ jobs:
 
   create-release:
     name: Create Release
-    needs: [build-android, build-web, build-linux, build-windows]
+    needs: [build-android, build-linux, build-windows]
     runs-on: ubuntu-latest
 
     steps:
@@ -185,7 +152,6 @@ jobs:
           files: |
             artifacts/android-apk/family-bank-android.apk
             artifacts/android-aab/family-bank-android.aab
-            artifacts/web/family-bank-web.zip
             artifacts/linux/family-bank-linux-x64.tar.gz
             artifacts/windows/family-bank-windows-x64.zip
           draft: false
