@@ -153,4 +153,8 @@ flutter clean && flutter run
 
 ---
 
-**License**: Private Project | **Contact**: 项目维护者
+## 开源协议
+
+本项目采用 [MIT License](LICENSE) 开源协议。
+
+**License**: MIT | **Contact**: 项目维护者

@@ -1,5 +1,10 @@
 name: family_bank
 description: "个人账单流水分析APP - 账清"
+
+# 开源协议
+# 本项目采用 MIT License 开源协议
+# 详见项目根目录的 LICENSE 文件
+
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
