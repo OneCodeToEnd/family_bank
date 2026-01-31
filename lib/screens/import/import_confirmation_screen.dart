@@ -455,16 +455,18 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
                 border: OutlineInputBorder(),
                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
+              isExpanded: true,
               items: _availableAccounts.map((account) {
                 final isRecommended = _accountMatchService.isRecommendedAccount(account, platform);
                 return DropdownMenuItem<int>(
                   value: account.id,
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       if (isRecommended)
                         const Icon(Icons.star, size: 16, color: Colors.amber),
                       if (isRecommended) const SizedBox(width: 4),
-                      Expanded(
+                      Flexible(
                         child: Text(
                           _accountMatchService.getAccountDisplayName(account),
                           overflow: TextOverflow.ellipsis,
