@@ -147,10 +147,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     onBack: _previousPage,
                   ),
 
-                  // 5. AI 配置（可选）
+                  // 5. AI 配置（必需）
                   AIConfigStep(
                     onNext: _nextPage,
-                    onSkip: _nextPage,
                     onBack: _previousPage,
                   ),
 

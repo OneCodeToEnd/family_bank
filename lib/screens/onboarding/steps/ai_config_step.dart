@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../../models/ai_provider.dart';
-import '../../../services/ai/ai_config_service.dart';
-import '../../../models/ai_classification_config.dart';
+import '../../../services/ai_model_config_service.dart';
+import '../../../constants/ai_model_constants.dart';
+import '../../../models/ai_model_config.dart';
 
 /// AI 配置步骤（可选）
 class AIConfigStep extends StatefulWidget {
   final VoidCallback onNext;
-  final VoidCallback onSkip;
   final VoidCallback onBack;
 
   const AIConfigStep({
     super.key,
     required this.onNext,
-    required this.onSkip,
     required this.onBack,
   });
 
@@ -22,17 +20,24 @@ class AIConfigStep extends StatefulWidget {
 
 class _AIConfigStepState extends State<AIConfigStep> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _modelNameController = TextEditingController();
   final _apiKeyController = TextEditingController();
-  final AIConfigService _aiConfigService = AIConfigService();
+  final _baseUrlController = TextEditingController();
+  final AIModelConfigService _configService = AIModelConfigService();
 
-  AIProvider _selectedProvider = AIProvider.deepseek;
+  String _selectedProvider = AIModelConstants.providerDeepSeek;
   bool _isSaving = false;
   bool _apiKeyVisible = false;
+  bool _isActive = true;
+  bool _isLoading = true;
+  bool _hasExistingModels = false;
+  List<AIModelConfig> _existingModels = [];
 
   // AI 提供商选项
   final List<Map<String, dynamic>> _providers = [
     {
-      'provider': AIProvider.deepseek,
+      'provider': AIModelConstants.providerDeepSeek,
       'name': 'DeepSeek',
       'description': '高性价比，推荐使用',
       'icon': Icons.psychology,
@@ -40,7 +45,7 @@ class _AIConfigStepState extends State<AIConfigStep> {
       'url': 'https://platform.deepseek.com/',
     },
     {
-      'provider': AIProvider.qwen,
+      'provider': AIModelConstants.providerQwen,
       'name': '通义千问',
       'description': '阿里云提供',
       'icon': Icons.cloud,
@@ -50,9 +55,55 @@ class _AIConfigStepState extends State<AIConfigStep> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadExistingModels();
+    });
+  }
+
+  Future<void> _loadExistingModels() async {
+    try {
+      final models = await _configService.getAllModels();
+      setState(() {
+        _existingModels = models;
+        _hasExistingModels = models.isNotEmpty;
+        _isLoading = false;
+      });
+
+      if (!_hasExistingModels) {
+        _updateDefaultValues();
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _updateDefaultValues();
+    }
+  }
+
+  void _updateDefaultValues() {
+    _nameController.text = _selectedProvider == AIModelConstants.providerDeepSeek
+        ? 'DeepSeek Chat'
+        : '通义千问';
+    _modelNameController.text =
+        AIModelConstants.getDefaultModelName(_selectedProvider) ?? '';
+    _baseUrlController.text =
+        AIModelConstants.getDefaultBaseUrl(_selectedProvider) ?? '';
+  }
+
+  @override
   void dispose() {
+    _nameController.dispose();
+    _modelNameController.dispose();
     _apiKeyController.dispose();
+    _baseUrlController.dispose();
     super.dispose();
+  }
+
+  Future<void> _skipStep() async {
+    // 直接跳过，不保存任何配置
+    widget.onNext();
   }
 
   Future<void> _saveConfig() async {
@@ -63,16 +114,16 @@ class _AIConfigStepState extends State<AIConfigStep> {
     });
 
     try {
-      final config = AIClassificationConfig(
-        enabled: true,
+      await _configService.createModel(
+        name: _nameController.text.trim(),
         provider: _selectedProvider,
+        modelName: _modelNameController.text.trim(),
         apiKey: _apiKeyController.text.trim(),
-        modelId: _selectedProvider == AIProvider.deepseek
-            ? 'deepseek-chat'
-            : 'qwen-turbo',
+        baseUrl: _baseUrlController.text.trim().isEmpty
+            ? null
+            : _baseUrlController.text.trim(),
+        isActive: _isActive,
       );
-
-      await _aiConfigService.saveConfig(config);
 
       if (!mounted) return;
 
@@ -100,43 +151,29 @@ class _AIConfigStepState extends State<AIConfigStep> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 步骤标题
-          Row(
-            children: [
-              Text(
-                '第 4 步',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.orange[100],
-                  borderRadius: BorderRadius.circular(4),
+          Text(
+            '第 4 步',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
                 ),
-                child: Text(
-                  '可选',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.orange[900],
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
           ),
 
           const SizedBox(height: 8),
 
           Text(
-            '配置 AI 智能分类',
+            '配置 AI 智能分类（可选）',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -145,7 +182,9 @@ class _AIConfigStepState extends State<AIConfigStep> {
           const SizedBox(height: 8),
 
           Text(
-            'AI 可以自动识别账单分类，大幅提高准确度',
+            _hasExistingModels
+                ? '你已经配置了 AI 模型，可以跳过此步骤或添加新的模型'
+                : 'AI 用于自动识别账单分类和提取流水信息，可以稍后在设置中配置',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.grey[600],
                 ),
@@ -153,91 +192,128 @@ class _AIConfigStepState extends State<AIConfigStep> {
 
           const SizedBox(height: 24),
 
+          // 如果已有模型，显示提示信息
+          if (_hasExistingModels) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green[700]),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '已配置 ${_existingModels.length} 个 AI 模型',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[900],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '你可以直接跳过此步骤，或添加新的模型配置',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.green[900],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+
           // 表单
           Expanded(
             child: Form(
               key: _formKey,
               child: ListView(
                 children: [
-                  // AI 提供商选择
-                  Text(
-                    '选择 AI 提供商',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 12),
-                  for (final providerInfo in _providers)
-                    Builder(
-                      builder: (context) {
-                        final isSelected = _selectedProvider == providerInfo['provider'];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                      child: InkWell(
-                        onTap: () {
-                          setState(() {
-                            _selectedProvider = providerInfo['provider'];
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : Theme.of(context).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.outline,
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                providerInfo['icon'],
-                                color: isSelected
-                                    ? Theme.of(context).colorScheme.primary
-                                    : providerInfo['color'],
-                                size: 32,
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      providerInfo['name'],
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      providerInfo['description'],
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (isSelected)
-                                Icon(
-                                  Icons.check_circle,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                      },
+                  // 模型名称输入
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: '模型名称 *',
+                      hintText: '例如：DeepSeek Chat',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.label),
                     ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return '请输入模型名称';
+                      }
+                      return null;
+                    },
+                    textInputAction: TextInputAction.next,
+                  ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+
+                  // AI 提供商选择（紧凑型）
+                  DropdownButtonFormField<String>(
+                    value: _selectedProvider,
+                    decoration: const InputDecoration(
+                      labelText: 'AI 提供商 *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.cloud),
+                    ),
+                    items: _providers.map((providerInfo) {
+                      return DropdownMenuItem<String>(
+                        value: providerInfo['provider'],
+                        child: Row(
+                          children: [
+                            Icon(
+                              providerInfo['icon'],
+                              color: providerInfo['color'],
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(providerInfo['name']),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedProvider = value;
+                          _updateDefaultValues();
+                        });
+                      }
+                    },
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 模型 ID 输入
+                  TextFormField(
+                    controller: _modelNameController,
+                    decoration: const InputDecoration(
+                      labelText: '模型ID *',
+                      hintText: '例如：deepseek-chat',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.model_training),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return '请输入模型ID';
+                      }
+                      return null;
+                    },
+                    textInputAction: TextInputAction.next,
+                  ),
+
+                  const SizedBox(height: 16),
 
                   // API Key 输入
                   TextFormField(
@@ -263,10 +339,50 @@ class _AIConfigStepState extends State<AIConfigStep> {
                       if (value == null || value.trim().isEmpty) {
                         return '请输入 API Key';
                       }
+                      if (value.trim().length < 10) {
+                        return 'API Key 长度过短';
+                      }
+                      return null;
+                    },
+                    textInputAction: TextInputAction.next,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 基础 URL 输入
+                  TextFormField(
+                    controller: _baseUrlController,
+                    decoration: const InputDecoration(
+                      labelText: '基础URL（可选）',
+                      hintText: '例如：https://api.deepseek.com',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.link),
+                    ),
+                    validator: (value) {
+                      if (value != null &&
+                          value.trim().isNotEmpty &&
+                          !value.startsWith('http')) {
+                        return 'URL必须以http://或https://开头';
+                      }
                       return null;
                     },
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _saveConfig(),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 设为活跃模型
+                  CheckboxListTile(
+                    title: const Text('设为活跃模型'),
+                    subtitle: const Text('启用此模型进行 AI 分类'),
+                    value: _isActive,
+                    onChanged: (value) {
+                      setState(() {
+                        _isActive = value ?? true;
+                      });
+                    },
+                    contentPadding: EdgeInsets.zero,
                   ),
 
                   const SizedBox(height: 12),
@@ -293,39 +409,25 @@ class _AIConfigStepState extends State<AIConfigStep> {
 
                   const SizedBox(height: 24),
 
-                  // 提示信息
+                  // 简化的提示信息
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green[200]!),
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.lightbulb_outline, color: Colors.green[700]),
-                            const SizedBox(width: 8),
-                            Text(
-                              '为什么推荐配置 AI？',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green[900],
-                              ),
+                        Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'AI 用于自动分类账单，可稍后在设置中配置',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue[900],
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '• 自动识别账单分类，准确率 90%+\n'
-                          '• 支持复杂交易描述的理解\n'
-                          '• 持续学习，越用越准确\n'
-                          '• API Key 加密存储，安全可靠',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.green[900],
                           ),
                         ),
                       ],
@@ -350,8 +452,8 @@ class _AIConfigStepState extends State<AIConfigStep> {
               // 跳过按钮
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _isSaving ? null : widget.onSkip,
-                  child: const Text('暂时跳过'),
+                  onPressed: _isSaving ? null : _skipStep,
+                  child: const Text('跳过'),
                 ),
               ),
 
