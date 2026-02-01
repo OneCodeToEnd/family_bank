@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import '../../constants/db_constants.dart';
 import 'preset_category_data.dart';
+import '../../utils/app_logger.dart';
 
 /// 数据库服务类
 /// 负责数据库的初始化、创建、升级和管理
@@ -26,20 +27,31 @@ class DatabaseService {
 
   /// 初始化数据库
   Future<Database> _initDatabase() async {
+    AppLogger.i('[DatabaseService] 开始初始化数据库');
+
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     String path = join(documentsDirectory.path, DbConstants.dbName);
 
-    return await openDatabase(
+    AppLogger.d('[DatabaseService] 数据库路径: $path');
+    AppLogger.d('[DatabaseService] 数据库版本: ${DbConstants.dbVersion}');
+
+    final db = await openDatabase(
       path,
       version: DbConstants.dbVersion,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+
+    AppLogger.i('[DatabaseService] 数据库初始化完成');
+    return db;
   }
 
   /// 创建数据库表
   Future<void> _onCreate(Database db, int version) async {
+    AppLogger.i('[DatabaseService] 开始创建数据库表 (版本: $version)');
+
     // 创建家庭组表
+    AppLogger.d('[DatabaseService] 创建 family_groups 表');
     await db.execute('''
       CREATE TABLE ${DbConstants.tableFamilyGroups} (
         ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,6 +63,7 @@ class DatabaseService {
     ''');
 
     // 创建家庭成员表
+    AppLogger.d('[DatabaseService] 创建 family_members 表');
     await db.execute('''
       CREATE TABLE ${DbConstants.tableFamilyMembers} (
         ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,6 +79,7 @@ class DatabaseService {
     ''');
 
     // 创建账户表
+    AppLogger.d('[DatabaseService] 创建 accounts 表');
     await db.execute('''
       CREATE TABLE ${DbConstants.tableAccounts} (
         ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,6 +97,7 @@ class DatabaseService {
     ''');
 
     // 创建分类表
+    AppLogger.d('[DatabaseService] 创建 categories 表');
     await db.execute('''
       CREATE TABLE ${DbConstants.tableCategories} (
         ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -103,6 +118,7 @@ class DatabaseService {
     ''');
 
     // 创建账单流水表
+    AppLogger.d('[DatabaseService] 创建 transactions 表');
     await db.execute('''
       CREATE TABLE ${DbConstants.tableTransactions} (
         ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,6 +143,7 @@ class DatabaseService {
     ''');
 
     // 创建分类规则表
+    AppLogger.d('[DatabaseService] 创建 category_rules 表');
     await db.execute('''
       CREATE TABLE ${DbConstants.tableCategoryRules} (
         ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -152,6 +169,7 @@ class DatabaseService {
 
 
     // 创建应用设置表
+    AppLogger.d('[DatabaseService] 创建 app_settings 表');
     await db.execute('''
       CREATE TABLE ${DbConstants.tableAppSettings} (
         ${DbConstants.columnSettingKey} TEXT PRIMARY KEY,
@@ -161,6 +179,7 @@ class DatabaseService {
     ''');
 
     // 创建HTTP日志表 (V4新增)
+    AppLogger.d('[DatabaseService] 创建 http_logs 表');
     await db.execute('''
       CREATE TABLE ${DbConstants.tableHttpLogs} (
         ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -189,6 +208,7 @@ class DatabaseService {
     ''');
 
     // 创建邮箱配置表 (V5新增)
+    AppLogger.d('[DatabaseService] 创建 email_configs 表');
     await db.execute('''
       CREATE TABLE ${DbConstants.tableEmailConfigs} (
         ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -203,6 +223,7 @@ class DatabaseService {
     ''');
 
     // 创建AI模型配置表 (V6新增)
+    AppLogger.d('[DatabaseService] 创建 ai_models 表');
     await db.execute('''
       CREATE TABLE ${DbConstants.tableAIModels} (
         id TEXT PRIMARY KEY,
@@ -219,6 +240,7 @@ class DatabaseService {
     ''');
 
     // 创建年度预算表 (V7新增)
+    AppLogger.d('[DatabaseService] 创建 annual_budgets 表');
     await db.execute('''\n      CREATE TABLE ${DbConstants.tableAnnualBudgets} (
         ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
         ${DbConstants.columnAnnualBudgetFamilyId} INTEGER NOT NULL,
@@ -236,10 +258,14 @@ class DatabaseService {
     ''');
 
     // 创建索引
+    AppLogger.d('[DatabaseService] 创建数据库索引');
     await _createIndexes(db);
 
     // 初始化预设分类数据
+    AppLogger.d('[DatabaseService] 初始化预设分类数据');
     await PresetCategoryData.initialize(db);
+
+    AppLogger.i('[DatabaseService] 数据库表创建完成');
   }
 
   /// 创建索引
@@ -562,9 +588,54 @@ class DatabaseService {
 
   /// 删除数据库(仅用于开发测试)
   Future<void> deleteDatabase() async {
-    Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, DbConstants.dbName);
-    await databaseFactory.deleteDatabase(path);
-    _database = null;
+    AppLogger.i('[DatabaseService] 🗑️ 开始删除数据库');
+
+    try {
+      // 关闭现有数据库连接
+      if (_database != null) {
+        AppLogger.d('[DatabaseService] 关闭现有数据库连接');
+        await _database!.close();
+        _database = null;
+        AppLogger.d('[DatabaseService] 数据库连接已关闭');
+      } else {
+        AppLogger.d('[DatabaseService] 没有活动的数据库连接');
+      }
+
+      // 获取数据库路径
+      Directory documentsDirectory = await getApplicationDocumentsDirectory();
+      String path = join(documentsDirectory.path, DbConstants.dbName);
+      AppLogger.d('[DatabaseService] 数据库路径: $path');
+
+      // 检查文件是否存在
+      final dbFile = File(path);
+      final exists = await dbFile.exists();
+      AppLogger.d('[DatabaseService] 数据库文件存在: $exists');
+
+      if (exists) {
+        // 获取文件大小
+        final fileSize = await dbFile.length();
+        AppLogger.d('[DatabaseService] 数据库文件大小: $fileSize bytes');
+
+        // 删除数据库文件
+        AppLogger.d('[DatabaseService] 正在删除数据库文件...');
+        await databaseFactory.deleteDatabase(path);
+        AppLogger.i('[DatabaseService] ✅ 数据库文件已删除');
+
+        // 再次确认文件已删除
+        final stillExists = await dbFile.exists();
+        if (stillExists) {
+          AppLogger.w('[DatabaseService] ⚠️ 警告: 删除后文件仍然存在!');
+        } else {
+          AppLogger.d('[DatabaseService] 确认: 文件已成功删除');
+        }
+      } else {
+        AppLogger.w('[DatabaseService] 数据库文件不存在，无需删除');
+      }
+
+      AppLogger.i('[DatabaseService] ✅ 数据库删除操作完成');
+    } catch (e, stackTrace) {
+      AppLogger.e('[DatabaseService] ❌ 删除数据库失败', error: e, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 }

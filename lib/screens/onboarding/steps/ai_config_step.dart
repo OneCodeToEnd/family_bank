@@ -242,6 +242,7 @@ class _AIConfigStepState extends State<AIConfigStep> {
                   // 模型名称输入
                   TextFormField(
                     controller: _nameController,
+                    enabled: !_isSaving,
                     decoration: const InputDecoration(
                       labelText: '模型名称 *',
                       hintText: '例如：DeepSeek Chat',
@@ -298,6 +299,7 @@ class _AIConfigStepState extends State<AIConfigStep> {
                   // 模型 ID 输入
                   TextFormField(
                     controller: _modelNameController,
+                    enabled: !_isSaving,
                     decoration: const InputDecoration(
                       labelText: '模型ID *',
                       hintText: '例如：deepseek-chat',
@@ -318,6 +320,7 @@ class _AIConfigStepState extends State<AIConfigStep> {
                   // API Key 输入
                   TextFormField(
                     controller: _apiKeyController,
+                    enabled: !_isSaving,
                     decoration: InputDecoration(
                       labelText: 'API Key *',
                       hintText: '输入你的 API Key',
@@ -352,6 +355,7 @@ class _AIConfigStepState extends State<AIConfigStep> {
                   // 基础 URL 输入
                   TextFormField(
                     controller: _baseUrlController,
+                    enabled: !_isSaving,
                     decoration: const InputDecoration(
                       labelText: '基础URL（可选）',
                       hintText: '例如：https://api.deepseek.com',

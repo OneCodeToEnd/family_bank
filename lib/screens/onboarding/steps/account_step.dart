@@ -246,6 +246,7 @@ class _AccountStepState extends State<AccountStep> {
                   // 账户名称输入
                   TextFormField(
                     controller: _nameController,
+                    enabled: !_isCreating,
                     decoration: const InputDecoration(
                       labelText: '账户名称 *',
                       hintText: '例如：我的支付宝',

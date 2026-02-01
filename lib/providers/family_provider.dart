@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/family_group.dart';
 import '../models/family_member.dart';
 import '../services/database/family_db_service.dart';
+import '../utils/app_logger.dart';
 
 /// 家庭组和成员状态管理
 class FamilyProvider with ChangeNotifier {
@@ -37,14 +38,27 @@ class FamilyProvider with ChangeNotifier {
 
   /// 初始化，加载所有数据
   Future<void> initialize() async {
+    AppLogger.i('[FamilyProvider] 开始初始化');
+
     await loadFamilyGroups();
     await loadFamilyMembers();
+
+    AppLogger.d('[FamilyProvider] 加载完成 - 家庭组: ${_familyGroups.length}, 成员: ${_familyMembers.length}');
 
     // 如果有家庭组，默认选择第一个
     if (_familyGroups.isNotEmpty) {
       _currentFamilyGroup = _familyGroups.first;
-      notifyListeners();
+      AppLogger.d('[FamilyProvider] 设置当前家庭组: ${_currentFamilyGroup?.name}');
+    } else {
+      // 清空当前家庭组和成员
+      _currentFamilyGroup = null;
+      _currentFamilyMember = null;
+      AppLogger.w('[FamilyProvider] ⚠️ 没有找到任何家庭组，已清空当前选择');
     }
+
+    // 无论是否有数据，都要通知监听者更新 UI
+    notifyListeners();
+    AppLogger.i('[FamilyProvider] ✅ 初始化完成');
   }
 
   // ==================== 家庭组操作 ====================
@@ -53,9 +67,12 @@ class FamilyProvider with ChangeNotifier {
   Future<void> loadFamilyGroups() async {
     _setLoading(true);
     try {
+      AppLogger.d('[FamilyProvider] 开始加载家庭组');
       _familyGroups = await _dbService.getAllFamilyGroups();
+      AppLogger.d('[FamilyProvider] 加载到 ${_familyGroups.length} 个家庭组');
       _clearError();
     } catch (e) {
+      AppLogger.e('[FamilyProvider] 加载家庭组失败', error: e);
       _setError('加载家庭组失败: $e');
     } finally {
       _setLoading(false);
@@ -147,9 +164,12 @@ class FamilyProvider with ChangeNotifier {
   Future<void> loadFamilyMembers() async {
     _setLoading(true);
     try {
+      AppLogger.d('[FamilyProvider] 开始加载家庭成员');
       _familyMembers = await _dbService.getAllFamilyMembers();
+      AppLogger.d('[FamilyProvider] 加载到 ${_familyMembers.length} 个家庭成员');
       _clearError();
     } catch (e) {
+      AppLogger.e('[FamilyProvider] 加载家庭成员失败', error: e);
       _setError('加载家庭成员失败: $e');
     } finally {
       _setLoading(false);

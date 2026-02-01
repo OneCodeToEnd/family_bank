@@ -387,6 +387,7 @@ class _FamilyMemberStepState extends State<FamilyMemberStep> {
           // 姓名输入
           TextFormField(
             controller: _nameController,
+            enabled: !_isCreating,
             decoration: const InputDecoration(
               labelText: '姓名 *',
               hintText: '例如：张三、小明',
@@ -407,6 +408,7 @@ class _FamilyMemberStepState extends State<FamilyMemberStep> {
           // 角色输入（可选）
           TextFormField(
             controller: _roleController,
+            enabled: !_isCreating,
             decoration: const InputDecoration(
               labelText: '角色（可选）',
               hintText: '例如：爸爸、妈妈、儿子',

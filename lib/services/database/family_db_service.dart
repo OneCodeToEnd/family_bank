@@ -3,6 +3,7 @@ import '../../models/family_group.dart';
 import '../../models/family_member.dart';
 import '../../constants/db_constants.dart';
 import 'database_service.dart';
+import '../../utils/app_logger.dart';
 
 /// 家庭组和成员数据库操作服务
 class FamilyDbService {
@@ -12,25 +13,38 @@ class FamilyDbService {
 
   /// 创建家庭组
   Future<int> createFamilyGroup(FamilyGroup group) async {
+    AppLogger.i('[FamilyDbService] 创建家庭组: ${group.name}');
     final db = await _dbService.database;
-    return await db.insert(
+    final id = await db.insert(
       DbConstants.tableFamilyGroups,
       group.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    AppLogger.i('[FamilyDbService] ✅ 家庭组创建成功，ID: $id');
+    return id;
   }
 
   /// 获取所有家庭组
   Future<List<FamilyGroup>> getAllFamilyGroups() async {
+    AppLogger.d('[FamilyDbService] 查询所有家庭组');
     final db = await _dbService.database;
     final List<Map<String, dynamic>> maps = await db.query(
       DbConstants.tableFamilyGroups,
       orderBy: '${DbConstants.columnCreatedAt} DESC',
     );
 
-    return List.generate(maps.length, (i) {
+    final groups = List.generate(maps.length, (i) {
       return FamilyGroup.fromMap(maps[i]);
     });
+
+    AppLogger.d('[FamilyDbService] 查询到 ${groups.length} 个家庭组');
+    if (groups.isNotEmpty) {
+      for (var group in groups) {
+        AppLogger.d('[FamilyDbService]   - ID: ${group.id}, 名称: ${group.name}, 创建时间: ${group.createdAt}');
+      }
+    }
+
+    return groups;
   }
 
   /// 根据ID获取家庭组
@@ -72,12 +86,15 @@ class FamilyDbService {
 
   /// 创建家庭成员
   Future<int> createFamilyMember(FamilyMember member) async {
+    AppLogger.i('[FamilyDbService] 创建家庭成员: ${member.name} (家庭组ID: ${member.familyGroupId})');
     final db = await _dbService.database;
-    return await db.insert(
+    final id = await db.insert(
       DbConstants.tableFamilyMembers,
       member.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    AppLogger.i('[FamilyDbService] ✅ 家庭成员创建成功，ID: $id');
+    return id;
   }
 
   /// 获取指定家庭组的所有成员
@@ -97,15 +114,25 @@ class FamilyDbService {
 
   /// 获取所有家庭成员
   Future<List<FamilyMember>> getAllFamilyMembers() async {
+    AppLogger.d('[FamilyDbService] 查询所有家庭成员');
     final db = await _dbService.database;
     final List<Map<String, dynamic>> maps = await db.query(
       DbConstants.tableFamilyMembers,
       orderBy: '${DbConstants.columnCreatedAt} ASC',
     );
 
-    return List.generate(maps.length, (i) {
+    final members = List.generate(maps.length, (i) {
       return FamilyMember.fromMap(maps[i]);
     });
+
+    AppLogger.d('[FamilyDbService] 查询到 ${members.length} 个家庭成员');
+    if (members.isNotEmpty) {
+      for (var member in members) {
+        AppLogger.d('[FamilyDbService]   - ID: ${member.id}, 名称: ${member.name}, 家庭组ID: ${member.familyGroupId}, 创建时间: ${member.createdAt}');
+      }
+    }
+
+    return members;
   }
 
   /// 根据ID获取家庭成员

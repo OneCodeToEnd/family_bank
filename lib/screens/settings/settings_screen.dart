@@ -18,6 +18,7 @@ import 'quick_action_settings_screen.dart';
 import '../../services/quick_action_service.dart';
 import '../onboarding/onboarding_screen.dart';
 import '../../services/onboarding/onboarding_service.dart';
+import '../../utils/app_logger.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -636,6 +637,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _clearAllData() async {
     if (!mounted) return;
 
+    AppLogger.i('[SettingsScreen] 🗑️ 用户触发清空数据操作');
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -659,33 +662,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     try {
+      AppLogger.d('[SettingsScreen] 步骤 1: 开始删除数据库');
       // 清空数据库
       final dbService = DatabaseService();
       await dbService.deleteDatabase();
+      AppLogger.i('[SettingsScreen] ✅ 步骤 1 完成: 数据库已删除');
 
       // 重新初始化所有 Provider
       if (mounted) {
+        AppLogger.d('[SettingsScreen] 步骤 2: 开始重新初始化 Providers');
         final familyProvider = context.read<FamilyProvider>();
         final accountProvider = context.read<AccountProvider>();
         final categoryProvider = context.read<CategoryProvider>();
         final transactionProvider = context.read<TransactionProvider>();
+        final settingsProvider = context.read<SettingsProvider>();
 
+        AppLogger.d('[SettingsScreen] 初始化 FamilyProvider');
         await familyProvider.initialize();
+
+        AppLogger.d('[SettingsScreen] 初始化 AccountProvider');
         await accountProvider.initialize();
+
+        AppLogger.d('[SettingsScreen] 初始化 CategoryProvider');
         await categoryProvider.initialize();
+
+        AppLogger.d('[SettingsScreen] 初始化 TransactionProvider');
         await transactionProvider.initialize();
+
+        AppLogger.d('[SettingsScreen] 初始化 SettingsProvider');
+        await settingsProvider.initialize();
+
+        AppLogger.i('[SettingsScreen] ✅ 步骤 2 完成: 所有 Providers 已重新初始化');
       }
 
       if (mounted) {
         Navigator.pop(context); // 关闭加载对话框
+        AppLogger.i('[SettingsScreen] ✅ 清空数据操作成功完成');
+
+        // 显示提示
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('数据已清空'),
+            content: Text('数据已清空，即将进入新手引导'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
+
+        // 延迟后跳转到新手引导页面
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          AppLogger.i('[SettingsScreen] 跳转到新手引导页面');
+          // 清除所有路由栈，跳转到新手引导
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+            (route) => false,
+          );
+        }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.e('[SettingsScreen] ❌ 清空数据失败', error: e, stackTrace: stackTrace);
       if (mounted) {
         Navigator.pop(context); // 关闭加载对话框
         ScaffoldMessenger.of(context).showSnackBar(

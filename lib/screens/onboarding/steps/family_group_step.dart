@@ -256,63 +256,64 @@ class _FamilyGroupStepState extends State<FamilyGroupStep> {
   }
 
   Widget _buildCreateForm() {
-    return Form(
-      key: _formKey,
-      child: Column(
-        children: [
-          // 家庭组名称输入
-          TextFormField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: '家庭组名称',
-              hintText: '例如：我的家庭、张家、李家',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.home),
+    return SingleChildScrollView(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 家庭组名称输入
+            TextFormField(
+              controller: _nameController,
+              enabled: !_isCreating,
+              decoration: const InputDecoration(
+                labelText: '家庭组名称',
+                hintText: '例如：我的家庭、张家、李家',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.home),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return '请输入家庭组名称';
+                }
+                return null;
+              },
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _createGroup(),
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return '请输入家庭组名称';
-              }
-              return null;
-            },
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _createGroup(),
-          ),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          // 提示信息
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue[200]!),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue[700]),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '你可以创建多个家庭组，分别管理不同的家庭财务',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.blue[900],
+            // 提示信息
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[700]),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '你可以创建多个家庭组，分别管理不同的家庭财务',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.blue[900],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          const Spacer(),
+            const SizedBox(height: 24),
 
-          // 如果有已有家庭组，显示返回选择按钮
-          if (_existingGroups.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: OutlinedButton.icon(
+            // 如果有已有家庭组，显示返回选择按钮
+            if (_existingGroups.isNotEmpty)
+              OutlinedButton.icon(
                 onPressed: _isCreating
                     ? null
                     : () {
@@ -326,8 +327,8 @@ class _FamilyGroupStepState extends State<FamilyGroupStep> {
                   minimumSize: const Size(double.infinity, 48),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
