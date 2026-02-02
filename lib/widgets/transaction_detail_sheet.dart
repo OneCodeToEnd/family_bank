@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../providers/category_provider.dart';
 import '../providers/transaction_provider.dart';
+import '../utils/app_logger.dart';
 import 'category_selector_dialog.dart';
 
 /// 流水详情弹窗
@@ -124,50 +125,54 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
 
   /// 分类行（带编辑按钮）
   Widget _buildCategoryRow() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.category, size: 20, color: Colors.grey[600]),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 80,
-            child: Text(
-              '分类',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
+    return Consumer<CategoryProvider>(
+      builder: (context, categoryProvider, child) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.category, size: 20, color: Colors.grey[600]),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 80,
+                child: Text(
+                  '分类',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              _getCategoryName(context),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
+              Expanded(
+                child: Text(
+                  _getCategoryName(categoryProvider),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
               ),
-            ),
+              // 编辑按钮
+              if (!_isUpdating)
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 18),
+                  onPressed: _showCategorySelector,
+                  tooltip: '修改分类',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                )
+              else
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
           ),
-          // 编辑按钮
-          if (!_isUpdating)
-            IconButton(
-              icon: const Icon(Icons.edit, size: 18),
-              onPressed: _showCategorySelector,
-              tooltip: '修改分类',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            )
-          else
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -209,13 +214,20 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
     );
   }
 
-  String _getCategoryName(BuildContext context) {
+  String _getCategoryName(CategoryProvider categoryProvider) {
     if (widget.transaction.categoryId == null) {
       return '未分类';
     }
 
-    final categoryProvider = context.read<CategoryProvider>();
     final category = categoryProvider.getCategoryById(widget.transaction.categoryId!);
+
+    // 调试信息
+    if (category == null) {
+      AppLogger.d('找不到分类 ID=${widget.transaction.categoryId}');
+      AppLogger.d('CategoryProvider 中的分类数量: ${categoryProvider.categories.length}');
+      AppLogger.d('所有分类 IDs: ${categoryProvider.categories.map((c) => c.id).toList()}');
+    }
+
     return category?.name ?? '未知';
   }
 

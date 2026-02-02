@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/family_provider.dart';
 import '../../providers/home_provider.dart';
+import '../../providers/category_provider.dart';
+import '../../providers/account_provider.dart';
+import '../../providers/transaction_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../screens/onboarding_screen.dart';
 import '../../screens/transaction/transaction_list_screen.dart';
 import '../../screens/settings/settings_screen.dart';
@@ -33,11 +37,22 @@ class _HomePageState extends State<HomePage> {
   /// 初始化应用数据
   Future<void> _initializeApp() async {
     try {
-      // 初始化所有 Provider
+      // 获取所有 Provider
       final familyProvider = context.read<FamilyProvider>();
       final homeProvider = context.read<HomeProvider>();
+      final categoryProvider = context.read<CategoryProvider>();
+      final accountProvider = context.read<AccountProvider>();
+      final transactionProvider = context.read<TransactionProvider>();
+      final settingsProvider = context.read<SettingsProvider>();
 
-      await familyProvider.initialize();
+      // 并行初始化所有 Provider
+      await Future.wait([
+        familyProvider.initialize(),
+        categoryProvider.initialize(),
+        accountProvider.initialize(),
+        transactionProvider.initialize(),
+        settingsProvider.initialize(),
+      ]);
 
       setState(() {
         _isInitialized = true;
