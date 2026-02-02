@@ -6,6 +6,7 @@ import '../../providers/transaction_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/account_provider.dart';
 import '../../widgets/category_hierarchy_stat_card.dart';
+import 'counterparty_transactions_screen.dart';
 
 /// 数据分析页面
 class AnalysisScreen extends StatefulWidget {
@@ -1041,10 +1042,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   final item = entry.value;
                   final amount = (item['total_amount'] as num).toDouble();
                   final percentage = (amount / total * 100).toStringAsFixed(1);
+                  final counterparty = item['counterparty'] as String? ?? '未知';
+
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(child: Text('${index + 1}')),
-                    title: Text(item['counterparty'] ?? '未知'),
+                    title: Text(counterparty),
                     subtitle: Text('${item['transaction_count']}笔交易'),
                     trailing: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1054,6 +1057,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                         Text('$percentage%', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                       ],
                     ),
+                    onTap: () => _navigateToCounterpartyTransactions(counterparty, 'expense'),
                   );
                 }),
               ],
@@ -1224,6 +1228,47 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           ),
         );
       },
+    );
+  }
+
+  /// 导航到对方交易流水详情页面
+  void _navigateToCounterpartyTransactions(String counterparty, String type) {
+    // 获取当前的筛选时间范围
+    final now = DateTime.now();
+    DateTime? startDate;
+    DateTime? endDate = now;
+
+    switch (_selectedPeriod) {
+      case 'month':
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+      case 'quarter':
+        final quarterMonth = ((now.month - 1) ~/ 3) * 3 + 1;
+        startDate = DateTime(now.year, quarterMonth, 1);
+        break;
+      case 'year':
+        startDate = DateTime(now.year, 1, 1);
+        break;
+      case 'custom':
+        startDate = _customStartDate;
+        endDate = _customEndDate;
+        break;
+      default:
+        startDate = null;
+        endDate = null;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CounterpartyTransactionsScreen(
+          counterparty: counterparty,
+          type: type,
+          startDate: startDate,
+          endDate: endDate,
+          accountId: _selectedAccountId,
+        ),
+      ),
     );
   }
 }

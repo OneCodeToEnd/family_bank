@@ -799,15 +799,22 @@ class _TransactionMatchCard extends StatelessWidget {
   }
 
   Future<void> _showCategoryPicker(BuildContext context) async {
+    // 只显示叶子节点（没有子分类的分类）
+    final leafCategories = allCategories.where((c) {
+      return c.type == transaction.type &&
+          !allCategories.any((other) => other.parentId == c.id);
+    }).toList();
+
     final selected = await showDialog<Category>(
       context: context,
       builder: (context) => SimpleDialog(
         title: const Text('选择分类'),
-        children: allCategories
-            .where((c) => c.type == transaction.type)
-            .map((category) {
+        children: leafCategories.map((category) {
+          // 构建分类路径显示
+          String displayName = _getCategoryPath(category);
+
           return SimpleDialogOption(
-            child: Text(category.name),
+            child: Text(displayName),
             onPressed: () => Navigator.pop(context, category),
           );
         }).toList(),
@@ -817,5 +824,29 @@ class _TransactionMatchCard extends StatelessWidget {
     if (selected != null) {
       onCategorySelected(selected.id!);
     }
+  }
+
+  /// 获取分类路径
+  String _getCategoryPath(Category category) {
+    final path = <String>[];
+    Category? current = category;
+
+    while (current != null) {
+      path.insert(0, current.name);
+      if (current.parentId != null) {
+        current = allCategories.firstWhere(
+          (c) => c.id == current!.parentId,
+          orElse: () => current!,
+        );
+        if (current.id == category.id) {
+          // 避免循环引用
+          break;
+        }
+      } else {
+        current = null;
+      }
+    }
+
+    return path.join(' > ');
   }
 }

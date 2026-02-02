@@ -205,7 +205,13 @@ class QwenClassifierService with AIClassifierServiceMixin
     Transaction transaction,
     List<Category> categories,
   ) {
-    final categoryList = categories.map((c) {
+    // 只使用叶子节点（没有子分类的分类）
+    final leafCategories = categories.where((c) {
+      return !categories.any((other) => other.parentId == c.id);
+    }).toList();
+
+    // 为每个叶子节点构建完整路径
+    final categoryList = leafCategories.map((c) {
       final parts = [c.name];
       if (c.parentId != null) {
         final parent = categories.firstWhere(

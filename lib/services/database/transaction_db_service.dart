@@ -616,22 +616,43 @@ class TransactionDbService {
   /// 获取对手方排行（按交易金额）
   Future<List<Map<String, dynamic>>> getCounterpartyRanking({
     required String type,
+    int? startTime,
+    int? endTime,
+    int? accountId,
     int limit = 10,
   }) async {
     final db = await _dbService.database;
+    final whereConditions = <String>[
+      '${DbConstants.columnTransactionType} = ?',
+      '${DbConstants.columnTransactionCounterparty} IS NOT NULL',
+      '${DbConstants.columnTransactionCounterparty} != \'\'',
+    ];
+    final whereArgs = <dynamic>[type];
+
+    if (startTime != null) {
+      whereConditions.add('${DbConstants.columnTransactionTime} >= ?');
+      whereArgs.add(startTime);
+    }
+    if (endTime != null) {
+      whereConditions.add('${DbConstants.columnTransactionTime} <= ?');
+      whereArgs.add(endTime);
+    }
+    if (accountId != null) {
+      whereConditions.add('${DbConstants.columnTransactionAccountId} = ?');
+      whereArgs.add(accountId);
+    }
+
     return await db.rawQuery('''
       SELECT
         ${DbConstants.columnTransactionCounterparty} as counterparty,
         COUNT(*) as transaction_count,
         SUM(${DbConstants.columnTransactionAmount}) as total_amount
       FROM ${DbConstants.tableTransactions}
-      WHERE ${DbConstants.columnTransactionType} = ?
-        AND ${DbConstants.columnTransactionCounterparty} IS NOT NULL
-        AND ${DbConstants.columnTransactionCounterparty} != ''
+      WHERE ${whereConditions.join(' AND ')}
       GROUP BY ${DbConstants.columnTransactionCounterparty}
       ORDER BY total_amount DESC
       LIMIT ?
-    ''', [type, limit]);
+    ''', [...whereArgs, limit]);
   }
 
   /// 查找相似交易（用于历史学习匹配）

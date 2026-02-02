@@ -27,7 +27,8 @@ class _CategoryRuleFormScreenState extends State<CategoryRuleFormScreen> {
   String _matchType = 'exact';
   bool _isActive = true;
   bool _loading = true;
-  List<Category> _categories = [];
+  List<Category> _categories = []; // 叶子节点分类
+  List<Category> _allCategories = []; // 所有分类（用于构建路径）
 
   @override
   void initState() {
@@ -61,12 +62,18 @@ class _CategoryRuleFormScreenState extends State<CategoryRuleFormScreen> {
     try {
       final db = await _dbService.database;
       final categoryMaps = await db.query('categories');
-      final categories = categoryMaps.map((map) => Category.fromMap(map)).toList();
+      final allCategories = categoryMaps.map((map) => Category.fromMap(map)).toList();
+
+      // 只显示叶子节点（没有子分类的分类）
+      final leafCategories = allCategories.where((c) {
+        return !allCategories.any((other) => other.parentId == c.id);
+      }).toList();
 
       setState(() {
-        _categories = categories;
-        if (_selectedCategoryId == null && categories.isNotEmpty) {
-          _selectedCategoryId = categories.first.id;
+        _allCategories = allCategories; // 保存所有分类用于构建路径
+        _categories = leafCategories;
+        if (_selectedCategoryId == null && leafCategories.isNotEmpty) {
+          _selectedCategoryId = leafCategories.first.id;
         }
         _loading = false;
       });
@@ -164,11 +171,15 @@ class _CategoryRuleFormScreenState extends State<CategoryRuleFormScreen> {
         labelText: '目标分类',
         border: OutlineInputBorder(),
         prefixIcon: Icon(Icons.category),
+        helperText: '只能选择末级分类（没有子分类的分类）',
       ),
       items: _categories.map((category) {
+        // 构建分类路径显示
+        String displayName = _getCategoryPath(category);
+
         return DropdownMenuItem(
           value: category.id,
-          child: Text(category.name),
+          child: Text(displayName),
         );
       }).toList(),
       onChanged: (value) {
@@ -183,6 +194,30 @@ class _CategoryRuleFormScreenState extends State<CategoryRuleFormScreen> {
         return null;
       },
     );
+  }
+
+  /// 获取分类路径
+  String _getCategoryPath(Category category) {
+    final path = <String>[];
+    Category? current = category;
+
+    while (current != null) {
+      path.insert(0, current.name);
+      if (current.parentId != null) {
+        current = _allCategories.firstWhere(
+          (c) => c.id == current!.parentId,
+          orElse: () => current!,
+        );
+        if (current.id == category.id) {
+          // 避免循环引用
+          break;
+        }
+      } else {
+        current = null;
+      }
+    }
+
+    return path.join(' > ');
   }
 
   Widget _buildMatchTypeSelector() {

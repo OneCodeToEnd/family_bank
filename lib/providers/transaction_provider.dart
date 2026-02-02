@@ -522,6 +522,9 @@ class TransactionProvider with ChangeNotifier {
   }) async {
     return await _dbService.getCounterpartyRanking(
       type: type,
+      startTime: _filterStartDate?.millisecondsSinceEpoch,
+      endTime: _filterEndDate?.millisecondsSinceEpoch,
+      accountId: _filterAccountId,
       limit: limit,
     );
   }
