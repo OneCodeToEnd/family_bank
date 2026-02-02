@@ -263,7 +263,27 @@ class _CategoryStatNodeWidgetState extends State<CategoryStatNodeWidget> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => TransactionDetailSheet(transaction: transaction),
+      builder: (context) => TransactionDetailSheet(
+        transaction: transaction,
+        onCategoryUpdated: () {
+          // 分类更新后刷新流水列表
+          _refreshTransactions();
+        },
+      ),
     );
+  }
+
+  /// 刷新流水列表
+  Future<void> _refreshTransactions() async {
+    // 清空缓存，强制重新加载
+    setState(() {
+      _transactions = null;
+    });
+
+    // 重新加载该分类的流水
+    await _loadTransactions();
+
+    // 触发父组件刷新，更新统计数据
+    widget.onUpdate();
   }
 }
