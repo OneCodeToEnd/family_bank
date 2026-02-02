@@ -17,7 +17,7 @@ class AnalysisScreen extends StatefulWidget {
 }
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
-  String _selectedPeriod = 'month'; // month, quarter, year, all
+  String _selectedPeriod = 'year'; // month, quarter, year, all
   DateTime? _customStartDate;
   DateTime? _customEndDate;
   int? _selectedAccountId; // 选中的账户ID，null表示全部账户

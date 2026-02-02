@@ -4,6 +4,9 @@ import '../../providers/category_provider.dart';
 import '../../models/category.dart';
 import '../../utils/category_icon_utils.dart';
 import 'category_form_screen.dart';
+import '../../services/database/transaction_db_service.dart';
+import '../../services/ai/ai_config_service.dart';
+import '../import/import_confirmation_screen.dart';
 
 /// 分类管理页面
 class CategoryListScreen extends StatefulWidget {
@@ -355,9 +358,24 @@ class _CategoryListScreenState extends State<CategoryListScreen> {
   }
 
   /// 确认删除
-  void _confirmDelete(Category category, CategoryProvider provider) {
+  Future<void> _confirmDelete(Category category, CategoryProvider provider) async {
+    // 查询受影响的交易
+    final transactionDbService = TransactionDbService();
+    final affectedTransactions = await transactionDbService
+        .getTransactionsByCategoryId(category.id!);
+    final hasTransactions = affectedTransactions.isNotEmpty;
+
     // 检查是否有子分类
     final hasChildren = provider.getSubCategories(category.id!).isNotEmpty;
+
+    // 检查 AI 是否可用
+    final aiConfigService = AIConfigService();
+    final aiConfig = await aiConfigService.loadConfig();
+    final aiAvailable = aiConfig.enabled &&
+                        aiConfig.apiKey.isNotEmpty &&
+                        aiConfig.modelId.isNotEmpty;
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -375,9 +393,43 @@ class _CategoryListScreenState extends State<CategoryListScreen> {
                 style: TextStyle(color: Colors.orange, fontSize: 12),
               ),
             ],
+            if (hasTransactions) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: Colors.blue.shade700),
+                        const SizedBox(width: 8),
+                        Text(
+                          '此分类下有 ${affectedTransactions.length} 条交易',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '删除后这些交易将变为"未分类"状态',
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             const Text(
-              '此操作会将使用此分类的账单设为"未分类"，且无法恢复。',
+              '此操作无法恢复，请谨慎操作。',
               style: TextStyle(color: Colors.red, fontSize: 12),
             ),
           ],
@@ -387,26 +439,136 @@ class _CategoryListScreenState extends State<CategoryListScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text('取消'),
           ),
+          if (hasTransactions && aiAvailable)
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _deleteAndReclassify(category, provider);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.blue),
+              child: const Text('删除并重新分类'),
+            ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              final messenger = ScaffoldMessenger.of(context);
-              final success = await provider.deleteCategory(category.id!);
-              if (mounted) {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(success ? '分类已删除' : '删除失败'),
-                    backgroundColor: success ? null : Colors.red,
-                  ),
-                );
-              }
+              await _deleteOnly(category, provider);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('删除'),
+            child: const Text('仅删除'),
           ),
         ],
       ),
     );
+  }
+
+  /// 仅删除分类
+  Future<void> _deleteOnly(Category category, CategoryProvider provider) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final success = await provider.deleteCategory(category.id!);
+
+    if (mounted) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(success ? '分类已删除' : '删除失败'),
+          backgroundColor: success ? null : Colors.red,
+        ),
+      );
+    }
+  }
+
+  /// 删除分类并触发 AI 重新分类
+  Future<void> _deleteAndReclassify(
+    Category category,
+    CategoryProvider provider,
+  ) async {
+    if (!mounted) return;
+
+    // 显示加载指示器
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('正在删除分类...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // 1. 删除分类（数据库外键约束会自动将交易的 category_id 设为 NULL）
+      final success = await provider.deleteCategory(category.id!);
+
+      if (!success) {
+        if (mounted) {
+          Navigator.pop(context); // 关闭加载对话框
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('删除分类失败'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // 2. 获取所有未分类的交易（包括刚被删除分类影响的和之前就未分类的）
+      final transactionDbService = TransactionDbService();
+      final uncategorizedTransactions =
+          await transactionDbService.getUncategorizedTransactions();
+
+      if (mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+
+        if (uncategorizedTransactions.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('分类已删除，没有需要重新分类的交易'),
+            ),
+          );
+          return;
+        }
+
+        // 3. 导航到批量分类确认界面（复用 ImportConfirmationScreen）
+        final result = await Navigator.push<int>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ImportConfirmationScreen(
+              transactions: uncategorizedTransactions,
+            ),
+          ),
+        );
+
+        // 4. 显示结果
+        if (mounted && result != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('分类已删除，已重新分类 $result 条交易'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // 关闭加载对话框
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('操作失败: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   /// 跳转到添加分类

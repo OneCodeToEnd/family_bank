@@ -10,6 +10,7 @@ import '../../services/category/category_learning_service.dart';
 import '../../services/database/transaction_db_service.dart';
 import '../../services/database/database_service.dart';
 import '../../services/account_match_service.dart';
+import '../../services/ai/ai_config_service.dart';
 import '../../widgets/validation/validation_summary_card.dart';
 import '../../widgets/transaction_detail_sheet.dart';
 import '../account/account_form_screen.dart';
@@ -36,6 +37,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
   final CategoryLearningService _learningService = CategoryLearningService();
   final TransactionDbService _transactionDbService = TransactionDbService();
   final AccountMatchService _accountMatchService = AccountMatchService();
+  final AIConfigService _aiConfigService = AIConfigService();
 
   List<CategoryMatchResult?>? _matchResults;
   Map<int, Category> _categoryMap = {};
@@ -236,7 +238,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('确认导入'),
+          title: Text(widget.importResult != null ? '确认导入' : '批量分类'),
           actions: [
             if (!_processing && _matchResults != null)
               Padding(
@@ -351,6 +353,11 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
   Widget _buildAccountSelector() {
     AppLogger.d('[ImportConfirmationScreen] _buildAccountSelector 调用');
     AppLogger.d('[ImportConfirmationScreen] _availableAccounts.length: ${_availableAccounts.length}');
+
+    // 如果没有 importResult，说明是重新分类流程，不需要选择账户
+    if (widget.importResult == null) {
+      return const SizedBox.shrink();
+    }
 
     final platform = _importResult?.platform;
     final hasSuggestion = _importResult?.hasSuggestedAccount ?? false;
@@ -586,8 +593,11 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
   }
 
   Future<void> _saveAll() async {
-    // 检查是否选择了账户
-    if (_selectedAccountId == null) {
+    // 判断是否为重新分类流程
+    final isReclassification = widget.importResult == null;
+
+    // 重新分类时不需要检查账户选择
+    if (!isReclassification && _selectedAccountId == null) {
       _showError('请选择一个账户');
       return;
     }
@@ -600,6 +610,10 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
       int savedCount = 0;
       int learnedCount = 0;
 
+      // 加载 AI 配置以获取全局置信度阈值
+      final aiConfig = await _aiConfigService.loadConfig();
+      final minConfidence = aiConfig.confidenceThreshold; // 使用全局阈值
+
       // 准备要保存的交易列表
       List<Transaction> transactionsToSave = [];
 
@@ -609,18 +623,21 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
         final matchResult = _matchResults![i];
 
         if (matchResult?.categoryId != null) {
-          // 更新交易分类和账户
+          // 重新分类时保持原有 account_id，导入时使用选中的账户
           final updated = transaction.copyWith(
-            accountId: _selectedAccountId!,
+            accountId: isReclassification
+                ? transaction.accountId
+                : _selectedAccountId!,
             categoryId: matchResult!.categoryId,
-            isConfirmed: matchResult.confidence >= 0.8,
+            isConfirmed: matchResult.confidence >= minConfidence, // 使用全局阈值
             updatedAt: DateTime.now(),
           );
 
           transactionsToSave.add(updated);
 
-          // 如果是用户手动确认的，学习规则
-          if (matchResult.matchType == 'manual' || matchResult.confidence >= 0.8) {
+          // 学习高置信度的匹配规则
+          if (matchResult.matchType == 'manual' ||
+              matchResult.confidence >= minConfidence) {
             await _learningService.learnFromConfirmation(
               transaction,
               matchResult.categoryId!,
@@ -628,9 +645,11 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
             learnedCount++;
           }
         } else {
-          // 没有分类的也保存，但更新账户ID
+          // 没有分类的交易也要保存（更新 account_id）
           final updated = transaction.copyWith(
-            accountId: _selectedAccountId!,
+            accountId: isReclassification
+                ? transaction.accountId
+                : _selectedAccountId!,
             updatedAt: DateTime.now(),
           );
           transactionsToSave.add(updated);
@@ -639,16 +658,29 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
 
       // 批量保存到数据库
       if (transactionsToSave.isNotEmpty) {
-        final result = await _transactionDbService.createTransactionsBatch(transactionsToSave);
-        savedCount = result['successCount'] ?? 0;
-        final duplicateCount = result['duplicateCount'] ?? 0;
+        if (isReclassification) {
+          // 重新分类：更新现有交易
+          for (final transaction in transactionsToSave) {
+            await _transactionDbService.updateTransaction(transaction);
+            savedCount++;
+          }
+        } else {
+          // 导入：创建新交易
+          final result = await _transactionDbService
+              .createTransactionsBatch(transactionsToSave);
+          savedCount = result['successCount'] ?? 0;
+          final duplicateCount = result['duplicateCount'] ?? 0;
+
+          if (mounted && duplicateCount > 0) {
+            // 重复记录已在消息中处理
+          }
+        }
 
         if (mounted) {
-          // 显示成功消息
-          String message = '已保存 $savedCount 条交易';
-          if (duplicateCount > 0) {
-            message += '，跳过 $duplicateCount 条重复记录';
-          }
+          String message = isReclassification
+              ? '已更新 $savedCount 条交易的分类'
+              : '已保存 $savedCount 条交易';
+
           if (learnedCount > 0) {
             message += '，学习了 $learnedCount 条规则';
           }
@@ -660,7 +692,7 @@ class _ImportConfirmationScreenState extends State<ImportConfirmationScreen> {
             ),
           );
 
-          // 返回上一页
+          // 返回保存的数量
           Navigator.pop(context, savedCount);
         }
       }

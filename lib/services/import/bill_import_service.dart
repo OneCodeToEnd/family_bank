@@ -61,9 +61,9 @@ class BillImportService {
           }
 
           // // 跳过非成功状态
-          // if (status != '支付成功' && status != '交易成功' && status != '还款成功') {
-          //   continue;
-          // }
+          if (status == '交易关闭') {
+            continue;
+          }
 
           // 解析时间
           final transactionTime = _parseDateTime(timeStr);
