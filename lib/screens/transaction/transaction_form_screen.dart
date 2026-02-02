@@ -45,7 +45,10 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
       _counterpartyController.text = widget.transaction!.counterparty ?? '';
       _selectedType = widget.transaction!.type;
       _selectedAccountId = widget.transaction!.accountId;
-      _selectedCategoryId = widget.transaction!.categoryId;
+      // 将 categoryId = 0 转换为 null（兼容旧数据）
+      _selectedCategoryId = widget.transaction!.categoryId == 0
+          ? null
+          : widget.transaction!.categoryId;
       _selectedDate = widget.transaction!.transactionTime;
       _selectedTime = TimeOfDay.fromDateTime(widget.transaction!.transactionTime);
     }

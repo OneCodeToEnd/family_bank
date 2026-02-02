@@ -266,11 +266,14 @@ class _TransactionDetailSheetState extends State<TransactionDetailSheet> {
 
     try {
       final provider = context.read<TransactionProvider>();
-      final success = await provider.updateTransactionCategory(
-        widget.transaction.id!,
-        categoryId ?? 0,  // 0 表示未分类
+
+      // 使用 copyWith 更新交易，支持 null categoryId
+      final updatedTransaction = widget.transaction.copyWith(
+        categoryId: categoryId,
         isConfirmed: true,
       );
+
+      final success = await provider.updateTransaction(updatedTransaction);
 
       if (success) {
         // 触发回调，通知父组件刷新
