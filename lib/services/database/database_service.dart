@@ -6,6 +6,8 @@ import '../../constants/db_constants.dart';
 import 'preset_category_data.dart';
 import '../../utils/app_logger.dart';
 
+// 注意：数据库版本已更新到 10，添加了对手方分组表
+
 /// 数据库服务类
 /// 负责数据库的初始化、创建、升级和管理
 class DatabaseService {
@@ -257,6 +259,21 @@ class DatabaseService {
       )
     ''');
 
+    // 创建对手方分组表 (V10新增)
+    AppLogger.d('[DatabaseService] 创建 counterparty_groups 表');
+    await db.execute('''
+      CREATE TABLE ${DbConstants.tableCounterpartyGroups} (
+        ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.columnCounterpartyGroupMainCounterparty} TEXT NOT NULL,
+        ${DbConstants.columnCounterpartyGroupSubCounterparty} TEXT NOT NULL,
+        ${DbConstants.columnCounterpartyGroupAutoCreated} INTEGER DEFAULT 0,
+        ${DbConstants.columnCounterpartyGroupConfidenceScore} REAL DEFAULT 1.0,
+        ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
+        ${DbConstants.columnUpdatedAt} INTEGER NOT NULL,
+        UNIQUE(${DbConstants.columnCounterpartyGroupSubCounterparty})
+      )
+    ''');
+
     // 创建索引
     AppLogger.d('[DatabaseService] 创建数据库索引');
     await _createIndexes(db);
@@ -351,6 +368,14 @@ class DatabaseService {
     );
     await db.execute(
       'CREATE INDEX idx_http_log_status ON ${DbConstants.tableHttpLogs}(${DbConstants.columnLogStatusCode})',
+    );
+
+    // 对手方分组表索引
+    await db.execute(
+      'CREATE INDEX idx_counterparty_groups_main ON ${DbConstants.tableCounterpartyGroups}(${DbConstants.columnCounterpartyGroupMainCounterparty})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_counterparty_groups_sub ON ${DbConstants.tableCounterpartyGroups}(${DbConstants.columnCounterpartyGroupSubCounterparty})',
     );
   }
 
@@ -576,6 +601,38 @@ class DatabaseService {
     if (oldVersion < 9) {
       // 删除budgets表（该表从未被使用，已被annual_budgets替代）
       await db.execute('DROP TABLE IF EXISTS budgets');
+    }
+
+    // V10升级：添加对手方分组表
+    if (oldVersion < 10) {
+      AppLogger.i('[DatabaseService] 升级到 V10: 添加对手方分组表');
+
+      // 创建对手方分组表
+      await db.execute('''
+        CREATE TABLE ${DbConstants.tableCounterpartyGroups} (
+          ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DbConstants.columnCounterpartyGroupMainCounterparty} TEXT NOT NULL,
+          ${DbConstants.columnCounterpartyGroupSubCounterparty} TEXT NOT NULL,
+          ${DbConstants.columnCounterpartyGroupAutoCreated} INTEGER DEFAULT 0,
+          ${DbConstants.columnCounterpartyGroupConfidenceScore} REAL DEFAULT 1.0,
+          ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
+          ${DbConstants.columnUpdatedAt} INTEGER NOT NULL,
+          UNIQUE(${DbConstants.columnCounterpartyGroupSubCounterparty})
+        )
+      ''');
+
+      // 创建索引
+      await db.execute('''
+        CREATE INDEX idx_counterparty_groups_main
+        ON ${DbConstants.tableCounterpartyGroups}(${DbConstants.columnCounterpartyGroupMainCounterparty})
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_counterparty_groups_sub
+        ON ${DbConstants.tableCounterpartyGroups}(${DbConstants.columnCounterpartyGroupSubCounterparty})
+      ''');
+
+      AppLogger.i('[DatabaseService] V10 升级完成');
     }
   }
 

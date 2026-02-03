@@ -6,6 +6,8 @@ import '../../providers/transaction_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../providers/account_provider.dart';
 import '../../widgets/category_hierarchy_stat_card.dart';
+import '../../services/database/transaction_db_service.dart';
+import '../counterparty/counterparty_management_screen.dart';
 import 'counterparty_transactions_screen.dart';
 
 /// 数据分析页面
@@ -21,6 +23,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   DateTime? _customStartDate;
   DateTime? _customEndDate;
   int? _selectedAccountId; // 选中的账户ID，null表示全部账户
+  bool _showGroupedCounterparty = false; // 是否显示分组对手方
 
   @override
   void initState() {
@@ -70,6 +73,18 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       appBar: AppBar(
         title: const Text('数据分析'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.store),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CounterpartyManagementScreen(),
+                ),
+              );
+            },
+            tooltip: '对手方管理',
+          ),
           IconButton(
             icon: const Icon(Icons.account_balance_wallet),
             onPressed: _showAccountSelector,
@@ -1019,8 +1034,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   /// 支出对方排行
   Widget _buildCounterpartyRanking(TransactionProvider provider) {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      key: ValueKey('counterparty_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
-      future: provider.getCounterpartyRanking(type: 'expense', limit: 10),
+      key: ValueKey('counterparty_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}_$_showGroupedCounterparty'),
+      future: _showGroupedCounterparty
+          ? _getCounterpartyRankingGrouped(provider)
+          : provider.getCounterpartyRanking(type: 'expense', limit: 10),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const SizedBox.shrink();
@@ -1035,7 +1052,32 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('支出对方排行', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('支出对方排行', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _showGroupedCounterparty ? '分组' : '明细',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        Switch(
+                          value: _showGroupedCounterparty,
+                          onChanged: (value) {
+                            setState(() {
+                              _showGroupedCounterparty = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 ...data.asMap().entries.map((entry) {
                   final index = entry.key;
@@ -1043,11 +1085,32 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   final amount = (item['total_amount'] as num).toDouble();
                   final percentage = (amount / total * 100).toStringAsFixed(1);
                   final counterparty = item['counterparty'] as String? ?? '未知';
+                  final subCount = item['sub_count'] as int?;
 
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(child: Text('${index + 1}')),
-                    title: Text(counterparty),
+                    leading: CircleAvatar(
+                      child: _showGroupedCounterparty && subCount != null && subCount > 1
+                          ? const Icon(Icons.folder, size: 20)
+                          : Text('${index + 1}'),
+                    ),
+                    title: Row(
+                      children: [
+                        Expanded(child: Text(counterparty)),
+                        if (_showGroupedCounterparty && subCount != null && subCount > 1)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '$subCount个',
+                              style: const TextStyle(fontSize: 10, color: Colors.blue),
+                            ),
+                          ),
+                      ],
+                    ),
                     subtitle: Text('${item['transaction_count']}笔交易'),
                     trailing: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1065,6 +1128,19 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           ),
         );
       },
+    );
+  }
+
+  /// 获取分组对手方排行
+  Future<List<Map<String, dynamic>>> _getCounterpartyRankingGrouped(
+      TransactionProvider provider) async {
+    final dbService = TransactionDbService();
+    return await dbService.getCounterpartyRankingGrouped(
+      type: 'expense',
+      limit: 10,
+      startTime: provider.filterStartDate?.millisecondsSinceEpoch,
+      endTime: provider.filterEndDate?.millisecondsSinceEpoch,
+      accountId: provider.filterAccountId,
     );
   }
 

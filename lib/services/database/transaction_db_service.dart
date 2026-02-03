@@ -886,4 +886,168 @@ class TransactionDbService {
       'total_amount': totalAmount,
     };
   }
+
+  // ==================== 对手方分组查询方法 ====================
+
+  /// 获取对手方排行（支持分组）
+  /// 使用 LEFT JOIN 将子对手方聚合到主对手方
+  Future<List<Map<String, dynamic>>> getCounterpartyRankingGrouped({
+    required String type,
+    int? startTime,
+    int? endTime,
+    int? accountId,
+    int limit = 10,
+  }) async {
+    final db = await _dbService.database;
+    final whereConditions = <String>[
+      '${DbConstants.columnTransactionType} = ?',
+      '${DbConstants.columnTransactionCounterparty} IS NOT NULL',
+      '${DbConstants.columnTransactionCounterparty} != \'\'',
+    ];
+    final whereArgs = <dynamic>[type];
+
+    if (startTime != null) {
+      whereConditions.add('${DbConstants.columnTransactionTime} >= ?');
+      whereArgs.add(startTime);
+    }
+    if (endTime != null) {
+      whereConditions.add('${DbConstants.columnTransactionTime} <= ?');
+      whereArgs.add(endTime);
+    }
+    if (accountId != null) {
+      whereConditions.add('${DbConstants.columnTransactionAccountId} = ?');
+      whereArgs.add(accountId);
+    }
+
+    return await db.rawQuery('''
+      SELECT
+        COALESCE(cg.${DbConstants.columnCounterpartyGroupMainCounterparty}, t.${DbConstants.columnTransactionCounterparty}) as counterparty,
+        COUNT(*) as transaction_count,
+        SUM(t.${DbConstants.columnTransactionAmount}) as total_amount,
+        COUNT(DISTINCT cg.${DbConstants.columnCounterpartyGroupSubCounterparty}) as sub_count
+      FROM ${DbConstants.tableTransactions} t
+      LEFT JOIN ${DbConstants.tableCounterpartyGroups} cg
+        ON t.${DbConstants.columnTransactionCounterparty} = cg.${DbConstants.columnCounterpartyGroupSubCounterparty}
+      WHERE ${whereConditions.join(' AND ')}
+      GROUP BY COALESCE(cg.${DbConstants.columnCounterpartyGroupMainCounterparty}, t.${DbConstants.columnTransactionCounterparty})
+      ORDER BY total_amount DESC
+      LIMIT ?
+    ''', [...whereArgs, limit]);
+  }
+
+  /// 获取对手方统计（支持分组）
+  /// 如果 counterparty 是主对手方，则聚合所有子对手方的数据
+  Future<Map<String, dynamic>> getCounterpartyStatisticsGrouped(
+    String counterparty,
+  ) async {
+    final db = await _dbService.database;
+
+    // 查询该对手方的所有交易（包括作为主对手方和子对手方的情况）
+    final result = await db.rawQuery('''
+      SELECT
+        COUNT(*) as transaction_count,
+        SUM(CASE WHEN t.${DbConstants.columnTransactionType} = 'income'
+            THEN t.${DbConstants.columnTransactionAmount} ELSE 0 END) as total_income,
+        SUM(CASE WHEN t.${DbConstants.columnTransactionType} = 'expense'
+            THEN t.${DbConstants.columnTransactionAmount} ELSE 0 END) as total_expense,
+        MIN(t.${DbConstants.columnTransactionTime}) as first_transaction,
+        MAX(t.${DbConstants.columnTransactionTime}) as last_transaction
+      FROM ${DbConstants.tableTransactions} t
+      LEFT JOIN ${DbConstants.tableCounterpartyGroups} cg
+        ON t.${DbConstants.columnTransactionCounterparty} = cg.${DbConstants.columnCounterpartyGroupSubCounterparty}
+      WHERE COALESCE(cg.${DbConstants.columnCounterpartyGroupMainCounterparty}, t.${DbConstants.columnTransactionCounterparty}) = ?
+    ''', [counterparty]);
+
+    if (result.isEmpty) {
+      return {
+        'transaction_count': 0,
+        'total_income': 0.0,
+        'total_expense': 0.0,
+      };
+    }
+    return result.first;
+  }
+
+  /// 按分组查询交易
+  /// 如果 counterparty 是主对手方，返回所有子对手方的交易
+  Future<List<model.Transaction>> getTransactionsByGroupedCounterparty({
+    required String counterparty,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? accountId,
+    String? type,
+  }) async {
+    final db = await _dbService.database;
+
+    final whereConditions = <String>[];
+    final whereArgs = <dynamic>[];
+
+    // 时间范围
+    if (startDate != null) {
+      whereConditions.add('t.${DbConstants.columnTransactionTime} >= ?');
+      whereArgs.add(startDate.millisecondsSinceEpoch);
+    }
+    if (endDate != null) {
+      whereConditions.add('t.${DbConstants.columnTransactionTime} <= ?');
+      whereArgs.add(endDate.millisecondsSinceEpoch);
+    }
+
+    // 账户筛选
+    if (accountId != null) {
+      whereConditions.add('t.${DbConstants.columnTransactionAccountId} = ?');
+      whereArgs.add(accountId);
+    }
+
+    // 类型筛选
+    if (type != null) {
+      whereConditions.add('t.${DbConstants.columnTransactionType} = ?');
+      whereArgs.add(type);
+    }
+
+    // 对手方筛选（支持分组）
+    whereConditions.add(
+      'COALESCE(cg.${DbConstants.columnCounterpartyGroupMainCounterparty}, t.${DbConstants.columnTransactionCounterparty}) = ?',
+    );
+    whereArgs.add(counterparty);
+
+    final whereClause = whereConditions.isNotEmpty ? 'WHERE ${whereConditions.join(' AND ')}' : '';
+
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT t.*
+      FROM ${DbConstants.tableTransactions} t
+      LEFT JOIN ${DbConstants.tableCounterpartyGroups} cg
+        ON t.${DbConstants.columnTransactionCounterparty} = cg.${DbConstants.columnCounterpartyGroupSubCounterparty}
+      $whereClause
+      ORDER BY t.${DbConstants.columnTransactionTime} DESC
+    ''', whereArgs);
+
+    return List.generate(maps.length, (i) {
+      return model.Transaction.fromMap(maps[i]);
+    });
+  }
+
+  /// 获取子对手方明细统计
+  /// 返回主对手方下各个子对手方的统计信息
+  Future<List<Map<String, dynamic>>> getSubCounterpartyBreakdown(
+    String mainCounterparty,
+  ) async {
+    final db = await _dbService.database;
+
+    return await db.rawQuery('''
+      SELECT
+        t.${DbConstants.columnTransactionCounterparty} as sub_counterparty,
+        COUNT(*) as transaction_count,
+        SUM(t.${DbConstants.columnTransactionAmount}) as total_amount,
+        SUM(CASE WHEN t.${DbConstants.columnTransactionType} = 'income'
+            THEN t.${DbConstants.columnTransactionAmount} ELSE 0 END) as total_income,
+        SUM(CASE WHEN t.${DbConstants.columnTransactionType} = 'expense'
+            THEN t.${DbConstants.columnTransactionAmount} ELSE 0 END) as total_expense
+      FROM ${DbConstants.tableTransactions} t
+      INNER JOIN ${DbConstants.tableCounterpartyGroups} cg
+        ON t.${DbConstants.columnTransactionCounterparty} = cg.${DbConstants.columnCounterpartyGroupSubCounterparty}
+      WHERE cg.${DbConstants.columnCounterpartyGroupMainCounterparty} = ?
+      GROUP BY t.${DbConstants.columnTransactionCounterparty}
+      ORDER BY total_amount DESC
+    ''', [mainCounterparty]);
+  }
 }

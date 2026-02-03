@@ -9,6 +9,7 @@ import '../../providers/family_provider.dart';
 import '../../services/database/database_service.dart';
 import '../member/member_list_screen.dart';
 import '../budget/budget_overview_screen.dart';
+import '../counterparty/counterparty_management_screen.dart';
 import 'ai_settings_screen.dart';
 import '../category/category_rule_list_screen.dart';
 import 'email_config_screen.dart';
@@ -79,6 +80,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // 功能设置
               _buildSectionHeader('功能设置'),
               _buildBudgetManagementTile(),
+              _buildCounterpartyManagementTile(),
               _buildQuickActionSettingsTile(),
               _buildAISettingsTile(),
               _buildCategoryRulesTile(),
@@ -255,6 +257,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => const BudgetOverviewScreen(),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 对手方管理
+  Widget _buildCounterpartyManagementTile() {
+    return ListTile(
+      leading: const Icon(Icons.store),
+      title: const Text('对手方管理'),
+      subtitle: const Text('管理对手方分组和智能建议'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const CounterpartyManagementScreen(),
           ),
         );
       },

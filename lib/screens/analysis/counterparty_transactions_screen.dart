@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../models/transaction.dart';
 import '../../services/database/transaction_db_service.dart';
+import '../../providers/counterparty_provider.dart';
 import '../../widgets/transaction_item_widget.dart';
 import '../../widgets/transaction_detail_sheet.dart';
 
@@ -34,6 +36,9 @@ class _CounterpartyTransactionsScreenState
   List<Transaction> _transactions = [];
   Map<String, dynamic>? _statistics;
   String? _errorMessage;
+  bool _isGroup = false; // 是否为分组对手方
+  List<String> _subCounterparties = []; // 子对手方列表
+  List<Map<String, dynamic>> _subBreakdown = []; // 子对手方明细
 
   @override
   void initState() {
@@ -49,23 +54,60 @@ class _CounterpartyTransactionsScreenState
 
     try {
       final dbService = TransactionDbService();
+      final counterpartyProvider = context.read<CounterpartyProvider>();
+
+      // 检查是否为分组对手方
+      final subCounterparties =
+          await counterpartyProvider.getSubCounterparties(widget.counterparty);
+      _isGroup = subCounterparties.isNotEmpty;
+      _subCounterparties = subCounterparties;
 
       // 加载交易流水
-      final transactions = await dbService.getTransactionsByDateRange(
-        widget.startDate ?? DateTime(2000),
-        widget.endDate ?? DateTime.now(),
-        accountId: widget.accountId,
-        type: widget.type,
-        counterparty: widget.counterparty,
-      );
+      List<Transaction> transactions;
+      if (_isGroup) {
+        // 使用分组查询
+        transactions = await dbService.getTransactionsByGroupedCounterparty(
+          counterparty: widget.counterparty,
+          startDate: widget.startDate ?? DateTime(2000),
+          endDate: widget.endDate ?? DateTime.now(),
+          accountId: widget.accountId,
+          type: widget.type,
+        );
+      } else {
+        // 使用普通查询
+        transactions = await dbService.getTransactionsByDateRange(
+          widget.startDate ?? DateTime(2000),
+          widget.endDate ?? DateTime.now(),
+          accountId: widget.accountId,
+          type: widget.type,
+          counterparty: widget.counterparty,
+        );
+      }
 
       // 加载统计信息
-      final statistics =
-          await dbService.getCounterpartyStatistics(widget.counterparty);
+      Map<String, dynamic> statistics;
+      if (_isGroup) {
+        statistics = await dbService.getCounterpartyStatisticsGrouped(
+          widget.counterparty,
+        );
+      } else {
+        statistics = await dbService.getCounterpartyStatistics(
+          widget.counterparty,
+        );
+      }
+
+      // 加载子对手方明细
+      List<Map<String, dynamic>> subBreakdown = [];
+      if (_isGroup) {
+        subBreakdown = await dbService.getSubCounterpartyBreakdown(
+          widget.counterparty,
+        );
+      }
 
       setState(() {
         _transactions = transactions;
         _statistics = statistics;
+        _subBreakdown = subBreakdown;
         _isLoading = false;
       });
     } catch (e) {
@@ -80,7 +122,34 @@ class _CounterpartyTransactionsScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.counterparty),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: Text(widget.counterparty)),
+            if (_isGroup) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.blue, width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.folder, size: 12, color: Colors.blue),
+                    const SizedBox(width: 4),
+                    Text(
+                      '分组 (${_subCounterparties.length})',
+                      style: const TextStyle(fontSize: 10, color: Colors.blue),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
         actions: [
           if (_statistics != null)
             Padding(
@@ -244,6 +313,52 @@ class _CounterpartyTransactionsScreenState
                   ),
                 ],
               ),
+            ],
+
+            // 子对手方明细
+            if (_isGroup && _subBreakdown.isNotEmpty) ...[
+              const Divider(),
+              const SizedBox(height: 12),
+              const Text(
+                '分店明细',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ..._subBreakdown.map((sub) {
+                final subName = sub['sub_counterparty'] as String;
+                final subCount = sub['transaction_count'] as int;
+                final subAmount = (sub['total_amount'] as num).toDouble();
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(Icons.store, size: 14, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          subName,
+                          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                        ),
+                      ),
+                      Text(
+                        '$subCount笔',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '¥${subAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
             ],
           ],
         ),
