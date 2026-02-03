@@ -16,6 +16,7 @@ class QuickActionConstants {
   static const String idTransactionList = 'transaction_list';
   static const String idAddTransaction = 'add_transaction';
   static const String idBudgetManagement = 'budget_management';
+  static const String idCounterpartyManagement = 'counterparty_management';
 
   // 默认快捷操作ID列表（首次启动时使用）
   static const List<String> defaultActionIds = [
@@ -109,6 +110,13 @@ class QuickActionConstants {
       icon: Icons.account_balance,
       routeName: 'BudgetOverviewScreen',
       sortOrder: 10,
+    ),
+    const QuickAction(
+      id: idCounterpartyManagement,
+      name: '对手方管理',
+      icon: Icons.people_alt,
+      routeName: 'CounterpartyManagementScreen',
+      sortOrder: 11,
     ),
   ];
 

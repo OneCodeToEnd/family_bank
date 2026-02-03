@@ -12,6 +12,7 @@ import '../../../screens/member/member_list_screen.dart';
 import '../../../screens/settings/ai_settings_screen.dart';
 import '../../../screens/category/category_rule_list_screen.dart';
 import '../../../screens/budget/budget_overview_screen.dart';
+import '../../../screens/counterparty/counterparty_management_screen.dart';
 import '../../../screens/import/email_bill_select_screen.dart';
 import '../../../screens/settings/email_config_screen.dart';
 import '../../../screens/settings/quick_action_settings_screen.dart';
@@ -188,6 +189,9 @@ class _QuickActionsSectionState extends State<QuickActionsSection> {
         break;
       case 'BudgetOverviewScreen':
         screen = const BudgetOverviewScreen();
+        break;
+      case 'CounterpartyManagementScreen':
+        screen = const CounterpartyManagementScreen();
         break;
       case 'EmailBillSelectScreen':
         // 邮箱同步需要特殊处理
