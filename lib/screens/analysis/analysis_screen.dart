@@ -74,7 +74,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         title: const Text('数据分析'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.store),
+            icon: const Icon(Icons.people_alt),
             onPressed: () {
               Navigator.push(
                 context,
@@ -257,10 +257,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       future: provider.getStatistics(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Card(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(child: CircularProgressIndicator()),
+          return Card(
+            child: SizedBox(
+              height: 280, // 固定高度，与正常状态保持一致
+              child: const Center(child: CircularProgressIndicator()),
             ),
           );
         }
@@ -429,7 +429,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const SizedBox(
-                    height: 200,
+                    height: 250, // 与正常状态保持一致
                     child: Center(child: CircularProgressIndicator()),
                   );
                 }
@@ -437,7 +437,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 final trendData = snapshot.data ?? [];
                 if (trendData.isEmpty) {
                   return const SizedBox(
-                    height: 200,
+                    height: 250, // 与正常状态保持一致
                     child: Center(child: Text('暂无趋势数据')),
                   );
                 }
@@ -582,15 +582,21 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               future: provider.getCategoryExpenseRanking(limit: 10),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return SizedBox(
+                    height: 400, // 固定高度，避免抖动
+                    child: const Center(child: CircularProgressIndicator()),
+                  );
                 }
 
                 final ranking = snapshot.data ?? [];
                 if (ranking.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text('暂无分类数据'),
+                  return const SizedBox(
+                    height: 100,
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Text('暂无分类数据'),
+                      ),
                     ),
                   );
                 }
@@ -866,6 +872,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       key: ValueKey('account_expense_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
       future: provider.getAccountExpenseRanking(),
       builder: (context, snapshot) {
+        // 加载状态
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Card(
+            child: SizedBox(
+              height: 200, // 固定高度，避免抖动
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+
+        // 无数据状态
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const SizedBox.shrink();
         }
@@ -924,6 +941,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       key: ValueKey('top_expenses_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
       future: provider.getTopExpenses(limit: 10),
       builder: (context, snapshot) {
+        // 加载状态
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Card(
+            child: SizedBox(
+              height: 400, // 固定高度，避免抖动
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+
+        // 无数据状态
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const SizedBox.shrink();
         }
@@ -964,6 +992,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       key: ValueKey('account_income_expense_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
       future: provider.getAccountIncomeExpenseStats(),
       builder: (context, snapshot) {
+        // 加载状态
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Card(
+            child: SizedBox(
+              height: 400, // 固定高度，避免抖动
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+
+        // 无数据状态
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const SizedBox.shrink();
         }
@@ -1033,101 +1072,124 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   /// 支出对方排行
   Widget _buildCounterpartyRanking(TransactionProvider provider) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      key: ValueKey('counterparty_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}_$_showGroupedCounterparty'),
-      future: _showGroupedCounterparty
-          ? _getCounterpartyRankingGrouped(provider)
-          : provider.getCounterpartyRanking(type: 'expense', limit: 10),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        final data = snapshot.data!;
-        final total = data.fold<double>(0, (sum, item) => sum + (item['total_amount'] as num).toDouble());
-
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                const Text('支出对方排行', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('支出对方排行', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _showGroupedCounterparty ? '分组' : '明细',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        Switch(
-                          value: _showGroupedCounterparty,
-                          onChanged: (value) {
-                            setState(() {
-                              _showGroupedCounterparty = value;
-                            });
-                          },
-                        ),
-                      ],
+                    Text(
+                      _showGroupedCounterparty ? '分组' : '明细',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    Switch(
+                      value: _showGroupedCounterparty,
+                      onChanged: (value) {
+                        setState(() {
+                          _showGroupedCounterparty = value;
+                        });
+                      },
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                ...data.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final item = entry.value;
-                  final amount = (item['total_amount'] as num).toDouble();
-                  final percentage = (amount / total * 100).toStringAsFixed(1);
-                  final counterparty = item['counterparty'] as String? ?? '未知';
-                  final subCount = item['sub_count'] as int?;
-
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      child: _showGroupedCounterparty && subCount != null && subCount > 1
-                          ? const Icon(Icons.folder, size: 20)
-                          : Text('${index + 1}'),
-                    ),
-                    title: Row(
-                      children: [
-                        Expanded(child: Text(counterparty)),
-                        if (_showGroupedCounterparty && subCount != null && subCount > 1)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '$subCount个',
-                              style: const TextStyle(fontSize: 10, color: Colors.blue),
-                            ),
-                          ),
-                      ],
-                    ),
-                    subtitle: Text('${item['transaction_count']}笔交易'),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('¥${amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('$percentage%', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                      ],
-                    ),
-                    onTap: () => _navigateToCounterpartyTransactions(counterparty, 'expense'),
-                  );
-                }),
               ],
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 16),
+            // 使用 AnimatedSwitcher 提供平滑过渡
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: child,
+                );
+              },
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                key: ValueKey('counterparty_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}_$_showGroupedCounterparty'),
+                future: _showGroupedCounterparty
+                    ? _getCounterpartyRankingGrouped(provider)
+                    : provider.getCounterpartyRanking(type: 'expense', limit: 10),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    // 加载时显示占位内容，保持高度稳定
+                    return SizedBox(
+                      height: 400, // 预估高度，避免高度突变
+                      child: const Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const SizedBox(
+                      height: 100,
+                      child: Center(child: Text('暂无数据')),
+                    );
+                  }
+
+                  final data = snapshot.data!;
+                  final total = data.fold<double>(0, (sum, item) => sum + (item['total_amount'] as num).toDouble());
+
+                  return Column(
+                    children: data.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final item = entry.value;
+                      final amount = (item['total_amount'] as num).toDouble();
+                      final percentage = (amount / total * 100).toStringAsFixed(1);
+                      final counterparty = item['counterparty'] as String? ?? '未知';
+                      final subCount = item['sub_count'] as int?;
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          child: _showGroupedCounterparty && subCount != null && subCount > 1
+                              ? const Icon(Icons.folder, size: 20)
+                              : Text('${index + 1}'),
+                        ),
+                        title: Row(
+                          children: [
+                            Expanded(child: Text(counterparty)),
+                            if (_showGroupedCounterparty && subCount != null && subCount > 1)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '$subCount个',
+                                  style: const TextStyle(fontSize: 10, color: Colors.blue),
+                                ),
+                              ),
+                          ],
+                        ),
+                        subtitle: Text('${item['transaction_count']}笔交易'),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('¥${amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text('$percentage%', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                          ],
+                        ),
+                        onTap: () => _navigateToCounterpartyTransactions(counterparty, 'expense'),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1155,6 +1217,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       key: ValueKey('category_pie_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
       future: provider.getCategoryExpenseRanking(limit: 10),
       builder: (context, snapshot) {
+        // 加载状态
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Card(
+            child: SizedBox(
+              height: 400, // 固定高度，避免抖动
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+
+        // 无数据状态
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const SizedBox.shrink();
         }
@@ -1241,6 +1314,17 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       key: ValueKey('month_comparison_${provider.filterAccountId}_${provider.filterStartDate}_${provider.filterEndDate}'),
       future: provider.getMonthlyTrend(type: 'expense'),
       builder: (context, snapshot) {
+        // 加载状态
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Card(
+            child: SizedBox(
+              height: 200, // 固定高度，避免抖动
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+
+        // 无数据或数据不足
         if (!snapshot.hasData || snapshot.data!.length < 2) {
           return const SizedBox.shrink();
         }
