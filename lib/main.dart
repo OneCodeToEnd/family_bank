@@ -8,6 +8,7 @@ import 'providers/settings_provider.dart';
 import 'providers/budget_provider.dart';
 import 'providers/home_provider.dart';
 import 'providers/counterparty_provider.dart';
+import 'providers/backup/backup_provider.dart';
 import 'screens/app_initializer.dart';
 import 'theme/app_colors.dart';
 
@@ -37,6 +38,7 @@ class FamilyBankApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => BudgetProvider()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
         ChangeNotifierProvider(create: (_) => CounterpartyProvider()),
+        ChangeNotifierProvider(create: (_) => BackupProvider()),
       ],
       child: Consumer<SettingsProvider>(
         builder: (context, settingsProvider, child) {

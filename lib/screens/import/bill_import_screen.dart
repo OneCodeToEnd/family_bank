@@ -469,14 +469,48 @@ class _BillImportScreenState extends State<BillImportScreen> {
   /// 选择文件
   Future<void> _pickFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: _selectedPlatform == 'alipay' ? ['csv'] : ['xlsx'],
-      );
+      // 在移动端使用 FileType.any 避免扩展名兼容性问题
+      // 在桌面端使用 FileType.custom 提供更好的用户体验
+      final FilePickerResult? result;
+      final expectedExtensions = _selectedPlatform == 'alipay' ? ['csv'] : ['xlsx'];
+
+      if (Platform.isAndroid || Platform.isIOS) {
+        // 移动端：使用 FileType.any
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.any,
+          dialogTitle: '选择账单文件',
+        );
+      } else {
+        // 桌面端：使用 FileType.custom 提供文件类型过滤
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: expectedExtensions,
+          dialogTitle: '选择账单文件',
+        );
+      }
 
       if (result != null && result.files.single.path != null) {
+        final filePath = result.files.single.path!;
+
+        // 验证文件扩展名（移动端需要手动验证）
+        final hasValidExtension = expectedExtensions.any(
+          (ext) => filePath.toLowerCase().endsWith('.$ext'),
+        );
+
+        if (!hasValidExtension) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('请选择 ${expectedExtensions.join(' 或 ')} 格式的文件'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
         setState(() {
-          _selectedFilePath = result.files.single.path;
+          _selectedFilePath = filePath;
           _importResult = null;
           _isPreviewExpanded = false; // 重置预览展开状态
         });

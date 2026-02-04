@@ -59,6 +59,7 @@ dependencies:
   csv: ^6.0.0
   excel: ^4.0.6
   charset: ^1.0.0
+  share_plus: ^10.0.0  # 文件分享
 
   # 日期时间
   intl: ^0.19.0

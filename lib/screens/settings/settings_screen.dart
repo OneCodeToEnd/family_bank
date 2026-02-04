@@ -20,6 +20,7 @@ import '../../services/quick_action_service.dart';
 import '../onboarding/onboarding_screen.dart';
 import '../../services/onboarding/onboarding_service.dart';
 import '../../utils/app_logger.dart';
+import 'backup/backup_management_screen.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -93,6 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               // 数据管理
               _buildSectionHeader('数据管理'),
+              _buildBackupManagementTile(),
               _buildEmailSyncTile(),
               _buildDataStatsTile(),
               _buildClearDataTile(),
@@ -311,6 +313,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => const CategoryRuleListScreen(),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 备份管理
+  Widget _buildBackupManagementTile() {
+    return ListTile(
+      leading: const Icon(Icons.backup),
+      title: const Text('备份管理'),
+      subtitle: const Text('备份和恢复数据'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const BackupManagementScreen(),
           ),
         );
       },
