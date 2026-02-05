@@ -101,6 +101,12 @@ dependencies:
   # ZIP解压（支持密码）
   archive: ^3.4.0
 
+  # WebDAV 同步
+  webdav_client: ^1.2.2
+
+  # 网络连接检测
+  connectivity_plus: ^6.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

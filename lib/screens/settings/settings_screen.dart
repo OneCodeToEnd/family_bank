@@ -21,6 +21,7 @@ import '../onboarding/onboarding_screen.dart';
 import '../../services/onboarding/onboarding_service.dart';
 import '../../utils/app_logger.dart';
 import 'backup/backup_management_screen.dart';
+import 'sync/sync_status_screen.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -95,6 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // 数据管理
               _buildSectionHeader('数据管理'),
               _buildBackupManagementTile(),
+              _buildWebDAVSyncTile(),
               _buildEmailSyncTile(),
               _buildDataStatsTile(),
               _buildClearDataTile(),
@@ -331,6 +333,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => const BackupManagementScreen(),
+          ),
+        );
+      },
+    );
+  }
+
+  /// WebDAV 同步
+  Widget _buildWebDAVSyncTile() {
+    return ListTile(
+      leading: const Icon(Icons.cloud_sync),
+      title: const Text('WebDAV 同步'),
+      subtitle: const Text('多设备数据同步'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SyncStatusScreen(),
           ),
         );
       },

@@ -10,6 +10,7 @@ import '../../providers/counterparty_provider.dart';
 import '../../screens/onboarding_screen.dart';
 import '../../screens/transaction/transaction_list_screen.dart';
 import '../../screens/settings/settings_screen.dart';
+import '../../services/sync/auto_sync_service.dart';
 import 'widgets/welcome_card.dart';
 import 'widgets/statistics_section.dart';
 import 'widgets/quick_actions_section.dart';
@@ -56,6 +57,10 @@ class _HomePageState extends State<HomePage> {
         settingsProvider.initialize(),
         counterpartyProvider.initialize(),
       ]);
+
+      // 初始化自动同步服务
+      final autoSyncService = AutoSyncService();
+      await autoSyncService.initialize();
 
       setState(() {
         _isInitialized = true;
