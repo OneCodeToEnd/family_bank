@@ -52,7 +52,7 @@ flutter run
 
 - **UI框架**: Flutter 3.6+ (Material Design 3)
 - **状态管理**: Provider
-- **数据库**: SQLite (sqflite) - 当前版本 V6
+- **数据库**: SQLite (sqflite) - 当前版本 V10
 - **图表**: fl_chart
 - **加密**: AES-256 (crypto, encrypt)
 - **邮件**: enough_mail (IMAP)
@@ -62,7 +62,7 @@ flutter run
 ## 版本信息
 
 **当前版本**: 1.0.0
-**数据库版本**: V6
+**数据库版本**: V10
 **Flutter要求**: ≥3.6.0
 
 ---

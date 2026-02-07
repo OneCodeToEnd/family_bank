@@ -94,7 +94,7 @@ All providers are initialized in `main.dart` using `MultiProvider` and must be i
 ### Database Layer
 The app uses **SQLite** (via sqflite) with a centralized database service:
 - `DatabaseService` - Singleton managing database lifecycle, schema creation, and migrations
-- Current database version: 6 (see `DbConstants.dbVersion`)
+- Current database version: 10 (see `DbConstants.dbVersion`)
 - Database file: `family_bank.db` stored in app documents directory
 
 **Key Tables:**
@@ -104,7 +104,8 @@ The app uses **SQLite** (via sqflite) with a centralized database service:
 - `categories` - Hierarchical category tree (parent-child relationships)
 - `transactions` - Transaction records with deduplication via hash
 - `category_rules` - Keyword-based auto-categorization rules
-- `budgets` - Budget management (V3.0 feature, table exists)
+- `annual_budgets` - Annual budget management with monthly breakdown
+- `counterparty_groups` - Transaction counterparty grouping and classification
 - `app_settings` - Application settings
 - `http_logs` - HTTP request/response logs for debugging
 - `email_configs` - Email account configurations for bill import
@@ -116,6 +117,10 @@ The app uses **SQLite** (via sqflite) with a centralized database service:
 - V4: Added HTTP logging table
 - V5: Added email configuration table
 - V6: Added AI model configuration table
+- V7: Added annual budgets table
+- V8: Added type field to annual_budgets
+- V9: Removed unused budgets table
+- V10: Added counterparty groups table
 
 ### Service Layer Architecture
 

@@ -41,7 +41,7 @@ flutter build macos --release    # macOS
 ### 技术栈
 - **UI框架**: Flutter 3.6+ (Material Design 3)
 - **状态管理**: Provider
-- **数据库**: SQLite (sqflite) - 当前版本 V6
+- **数据库**: SQLite (sqflite) - 当前版本 V10
 - **图表**: fl_chart
 - **加密**: AES-256 (crypto, encrypt)
 - **邮件**: enough_mail (IMAP)
@@ -70,6 +70,10 @@ lib/
 - V4: HTTP日志表
 - V5: 邮箱配置表
 - V6: AI模型配置表
+- V7: 年度预算表
+- V8: 预算类型字段
+- V9: 删除未使用的budgets表
+- V10: 对手方分组表
 
 ### 数据流
 用户操作 → Screen → Provider → Service → Database → Provider通知 → UI更新
@@ -136,7 +140,7 @@ flutter clean && flutter run
 
 ## 版本与路线图
 
-**当前版本**: 1.0.0 | **数据库版本**: V6 | **Flutter要求**: ≥3.6.0
+**当前版本**: 1.0.0 | **数据库版本**: V10 | **Flutter要求**: ≥3.6.0
 
 ### 已实现功能
 ✅ 家庭组与账户管理
