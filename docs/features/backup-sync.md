@@ -167,5 +167,5 @@ WebDAV同步：
 
 ## 相关功能
 
-- [数据安全](../reference/faq.md#数据安全性)
-- [设置](../getting-started/quickstart.md#数据备份)
+- [数据安全](../reference/faq.md)
+- [设置](../getting-started/quickstart.md)

@@ -7,14 +7,14 @@
 
 ### 1. 核心数据库服务 (5个)
 
-#### ✅ [database_service.dart](../lib/services/database/database_service.dart)
+#### ✅ database_service.dart
 - 数据库初始化和版本管理
 - 8个表的创建脚本
 - 13个索引的创建
 - 数据库升级机制
 - 自动初始化预设��类数据
 
-#### ✅ [family_db_service.dart](../lib/services/database/family_db_service.dart)
+#### ✅ family_db_service.dart
 **家庭组操作**:
 - ✅ 创建、查询、更新、删除家庭组
 - ✅ 获取家庭组列表
@@ -28,7 +28,7 @@
 **统计功能**:
 - ✅ 成员数量统计
 
-#### ✅ [account_db_service.dart](../lib/services/database/account_db_service.dart)
+#### ✅ account_db_service.dart
 **账户操作**:
 - ✅ 创建、查询、更新、删除账户
 - ✅ 获取所有账户/可见账户
@@ -41,7 +41,7 @@
 - ✅ 联表查询账户和成员信息
 - ✅ 账户统计（交易数、收入、支出、余额）
 
-#### ✅ [category_db_service.dart](../lib/services/database/category_db_service.dart)
+#### ✅ category_db_service.dart
 **分类操作**:
 - ✅ 创建、查询、更新、删除分类
 - ✅ 获取所有分类/可见分类
@@ -58,7 +58,7 @@
 - ✅ 根据标签/名称搜索分类
 - ✅ 分类统计（关联账单数、总金额）
 
-#### ✅ [transaction_db_service.dart](../lib/services/database/transaction_db_service.dart)
+#### ✅ transaction_db_service.dart
 **账单操作**:
 - ✅ 创建、查询、更新、删除账单
 - ✅ 批量创建账单（自动去重）
@@ -76,7 +76,7 @@
 - ✅ 分类支出排行
 - ✅ 按月统计趋势
 
-#### ✅ [rule_db_service.dart](../lib/services/database/rule_db_service.dart)
+#### ✅ rule_db_service.dart
 **规则操作**:
 - ✅ 创建、查询、更新、删除规则
 - ✅ 获取所有规则/启用规则
@@ -95,7 +95,7 @@
 - ✅ 获取最常用规则
 - ✅ 按关键词搜索规则
 
-#### ✅ [preset_category_data.dart](../lib/services/database/preset_category_data.dart)
+#### ✅ preset_category_data.dart
 - ✅ 预设收入分类（5个一级，3个二级）
 - ✅ 预设支出分类（4个一级，30+个二级）
 - ✅ 自动检测避免重复初始化
