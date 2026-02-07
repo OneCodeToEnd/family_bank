@@ -1,0 +1,98 @@
+site_name: 账清 (Family Bank)
+site_description: 基于Flutter的跨平台家庭账务管理应用
+site_author: Family Bank Team
+site_url: https://onecodetoend.github.io/family_bank/
+
+repo_name: OneCodeToEnd/family_bank
+repo_url: https://github.com/OneCodeToEnd/family_bank
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: zh
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色模式
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: 切换到浅色模式
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search:
+      lang:
+        - zh
+        - en
+
+nav:
+  - 首页: index.md
+  - 快速开始:
+    - 安装指南: getting-started/installation.md
+    - 快速上手: getting-started/quickstart.md
+  - 功能特性:
+    - 账户管理: features/accounts.md
+    - 分类系统: features/categories.md
+    - 交易记录: features/transactions.md
+    - 账单导入: features/bill-import.md
+    - AI智能分类: features/ai-classification.md
+    - 数据分析: features/analysis.md
+    - 备份与同步: features/backup-sync.md
+  - 架构设计:
+    - 技术栈: architecture/tech-stack.md
+    - 数据库设计: architecture/database.md
+    - 状态管理: architecture/state-management.md
+    - 服务层: architecture/services.md
+  - 开发指南:
+    - 开发环境: development/setup.md
+    - 代码规范: development/coding-standards.md
+    - 测试指南: development/testing.md
+    - 构建发布: development/building.md
+  - 参考文档:
+    - 数据库Schema: reference/database-schema.md
+    - API文档: reference/api.md
+    - 常见问题: reference/faq.md
+  - 更新日志: changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/OneCodeToEnd/family_bank
