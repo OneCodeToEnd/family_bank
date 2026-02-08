@@ -144,7 +144,7 @@ class _QuickActionsSectionState extends State<QuickActionsSection> {
           Flexible(
             child: Text(
               label,
-              style: const TextStyle(fontSize: 11),
+              style: const TextStyle(fontSize: 10),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
