@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto/crypto.dart';
 import 'package:logger/logger.dart';
+import 'package:sqflite/sqflite.dart';
 
 import '../../models/sync/backup_metadata.dart';
 import '../../models/sync/sync_status.dart';
@@ -86,8 +87,15 @@ class SyncService {
 
       final client = WebDAVClient(config);
 
-      // 5. 获取远程备份列表和元数据
-      final remoteBackups = await client.listBackupsWithMetadata();
+      // 5. 获取远程备份列表和元数据（添加超时保护）
+      final remoteBackups = await client.listBackupsWithMetadata()
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              _logger.w('[SyncService] 获取远程备份列表超时');
+              throw SyncException('获取远程备份列表超时，请检查网络连接');
+            },
+          );
 
       // 6. 比较本地和远程版本
       final comparison = await _compareVersions(remoteBackups);
@@ -169,10 +177,23 @@ class SyncService {
         remoteBackups.isNotEmpty ? remoteBackups.first : null;
     final remoteMetadata = remoteBackup?.metadata;
 
+    // 检查本地是否是空数据库（首次安装或跳过引导）
+    final isLocalEmpty = await _isLocalDatabaseEmpty();
+
     // 处理初始状态
     if (localMetadata == null && remoteMetadata == null) {
       _logger.d('[SyncService] 本地和远程都无备份');
       return const SyncComparison(action: SyncAction.none);
+    }
+
+    // 如果本地是空数据库且远程有数据，直接下载
+    if (isLocalEmpty && remoteMetadata != null) {
+      _logger.d('[SyncService] 本地是空数据库，下载远程数据');
+      return SyncComparison(
+        action: SyncAction.download,
+        remoteMetadata: remoteMetadata,
+        remoteBackupPath: remoteBackup?.path,
+      );
     }
 
     if (localMetadata == null) {
@@ -264,8 +285,11 @@ class SyncService {
       final result = await db.rawQuery('SELECT COUNT(*) as count FROM transactions');
       final transactionCount = result.first['count'] as int;
 
-      // 获取设备ID（简化版：使用固定ID或生成）
+      // 获取设备ID（持久化存储）
       final deviceId = await _getDeviceId();
+
+      // 获取基础备份ID（用于版本追踪）
+      final baseBackupId = await _getBaseBackupId();
 
       return BackupMetadata(
         backupId: backupId ?? DateTime.now().millisecondsSinceEpoch.toString(),
@@ -275,6 +299,7 @@ class SyncService {
         dataHash: dataHash,
         fileSize: fileSize,
         appVersion: '1.0.0', // TODO: 从 package_info_plus 获取
+        baseBackupId: baseBackupId,
       );
     } catch (e, stackTrace) {
       _logger.e('[SyncService] 获取本地元数据失败',
@@ -285,9 +310,117 @@ class SyncService {
 
   /// 获取设备ID
   Future<String> _getDeviceId() async {
-    // 简化版：从配置中获取或生成
-    // TODO: 实现设备ID管理
-    return 'device_${DateTime.now().millisecondsSinceEpoch}';
+    try {
+      final db = await _dbService.database;
+
+      // 从 app_settings 表中获取设备ID
+      final result = await db.query(
+        'app_settings',
+        where: 'setting_key = ?',
+        whereArgs: ['device_id'],
+        limit: 1,
+      );
+
+      if (result.isNotEmpty) {
+        final deviceId = result.first['setting_value'] as String;
+        _logger.d('[SyncService] 使用已存在的设备ID: $deviceId');
+        return deviceId;
+      }
+
+      // 生成新的设备ID并保存
+      final newDeviceId = 'device_${DateTime.now().millisecondsSinceEpoch}';
+      await db.insert('app_settings', {
+        'setting_key': 'device_id',
+        'setting_value': newDeviceId,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      });
+
+      _logger.i('[SyncService] 生成新的设备ID: $newDeviceId');
+      return newDeviceId;
+    } catch (e, stackTrace) {
+      _logger.e('[SyncService] 获取设备ID失败', error: e, stackTrace: stackTrace);
+      // 降级方案：使用固定前缀 + 时间戳
+      return 'device_${DateTime.now().millisecondsSinceEpoch}';
+    }
+  }
+
+  /// 保存基础备份ID
+  ///
+  /// 用于追踪本地数据基于哪个远程版本修改
+  Future<void> _saveBaseBackupId(String backupId) async {
+    try {
+      final db = await _dbService.database;
+      await db.insert(
+        'app_settings',
+        {
+          'setting_key': 'base_backup_id',
+          'setting_value': backupId,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      _logger.d('[SyncService] 保存基础备份ID: $backupId');
+    } catch (e, stackTrace) {
+      _logger.e('[SyncService] 保存基础备份ID失败',
+          error: e, stackTrace: stackTrace);
+    }
+  }
+
+  /// 获取基础备份ID
+  Future<String?> _getBaseBackupId() async {
+    try {
+      final db = await _dbService.database;
+      final result = await db.query(
+        'app_settings',
+        where: 'setting_key = ?',
+        whereArgs: ['base_backup_id'],
+        limit: 1,
+      );
+
+      if (result.isNotEmpty) {
+        final baseBackupId = result.first['setting_value'] as String;
+        _logger.d('[SyncService] 获取基础备份ID: $baseBackupId');
+        return baseBackupId;
+      }
+
+      return null;
+    } catch (e, stackTrace) {
+      _logger.e('[SyncService] 获取基础备份ID失败',
+          error: e, stackTrace: stackTrace);
+      return null;
+    }
+  }
+
+  /// 检查本地数据库是否为空（首次安装或跳过引导）
+  Future<bool> _isLocalDatabaseEmpty() async {
+    try {
+      final db = await _dbService.database;
+
+      // 检查关键表是否有数据
+      final tables = [
+        'transactions',
+        'accounts',
+        'family_groups',
+        'family_members',
+      ];
+
+      for (final table in tables) {
+        final result = await db.rawQuery('SELECT COUNT(*) as count FROM $table');
+        final count = result.first['count'] as int;
+        if (count > 0) {
+          _logger.d('[SyncService] 表 $table 有 $count 条数据，本地数据库非空');
+          return false;
+        }
+      }
+
+      _logger.d('[SyncService] 所有关键表都为空，本地数据库为空');
+      return true;
+    } catch (e, stackTrace) {
+      _logger.e('[SyncService] 检查本地数据库是否为空失败',
+          error: e, stackTrace: stackTrace);
+      // 出错时保守处理，认为非空
+      return false;
+    }
   }
 
   /// 上传备份
@@ -323,6 +456,9 @@ class SyncService {
 
       // 上传元数据
       await client.uploadMetadata(metadata);
+
+      // 保存基础备份ID，用于后续版本追踪
+      await _saveBaseBackupId(metadata.backupId);
 
       _logger.i('[SyncService] 备份上传成功');
 
@@ -391,6 +527,9 @@ class SyncService {
 
       // 重新初始化数据库
       await _dbService.database;
+
+      // 保存基础备份ID，用于后续版本追踪
+      await _saveBaseBackupId(comparison.remoteMetadata!.backupId);
 
       // 删除临时文件
       await downloadedFile.delete();

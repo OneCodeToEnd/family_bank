@@ -195,7 +195,16 @@ class WebDAVClient {
       final normalizedRemotePath = _normalizeRemotePath(config.remotePath);
       AppLogger.d('[WebDAVClient] 列出远程备份: $normalizedRemotePath');
 
-      final files = await _client.readDir(normalizedRemotePath);
+      // 尝试读取目录，如果目录不存在则返回空列表
+      List<webdav.File> files;
+      try {
+        files = await _client.readDir(normalizedRemotePath);
+      } catch (e) {
+        AppLogger.w('[WebDAVClient] 远程目录不存在或无法访问: $e');
+        // 目录不存在，返回空列表
+        return [];
+      }
+
       final backups = <RemoteBackupWithMetadata>[];
 
       for (final file in files) {

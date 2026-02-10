@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/backup/backup_provider.dart';
 import '../../../models/backup/backup_info.dart';
+import '../../../models/sync/webdav_config.dart';
+import '../../../services/sync/webdav_config_service.dart';
+import '../sync/webdav_setup_screen.dart';
+import 'cloud_backup_list_dialog.dart';
 
 /// 备份管理页面
 class BackupManagementScreen extends StatefulWidget {
@@ -12,13 +16,34 @@ class BackupManagementScreen extends StatefulWidget {
 }
 
 class _BackupManagementScreenState extends State<BackupManagementScreen> {
+  final _configService = WebDAVConfigService();
+  WebDAVConfig? _cachedConfig;
+  bool _configLoaded = false;
+
   @override
   void initState() {
     super.initState();
     // 初始化备份管理
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<BackupProvider>().initialize();
+      _loadWebDAVConfig();
     });
+  }
+
+  /// 加载 WebDAV 配置（缓存）
+  Future<void> _loadWebDAVConfig() async {
+    final config = await _configService.loadConfig();
+    if (mounted) {
+      setState(() {
+        _cachedConfig = config;
+        _configLoaded = true;
+      });
+    }
+  }
+
+  /// 刷新 WebDAV 配置
+  Future<void> _refreshWebDAVConfig() async {
+    await _loadWebDAVConfig();
   }
 
   @override
@@ -39,6 +64,11 @@ class _BackupManagementScreenState extends State<BackupManagementScreen> {
             children: [
               // 快速操作区
               _buildQuickActionsSection(context, backupProvider),
+
+              const Divider(),
+
+              // 云端同步区
+              _buildCloudSyncSection(context, backupProvider),
 
               const Divider(),
 
@@ -259,6 +289,9 @@ class _BackupManagementScreenState extends State<BackupManagementScreen> {
             case 'export':
               _handleExportExistingBackup(context, backupProvider, backup);
               break;
+            case 'upload_to_cloud':
+              _handleUploadBackupToCloud(context, backupProvider, backup);
+              break;
             case 'delete':
               _handleDeleteBackup(context, backupProvider, backup);
               break;
@@ -282,6 +315,16 @@ class _BackupManagementScreenState extends State<BackupManagementScreen> {
                 Icon(Icons.share),
                 SizedBox(width: 8),
                 Text('导出'),
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'upload_to_cloud',
+            child: Row(
+              children: [
+                Icon(Icons.cloud_upload),
+                SizedBox(width: 8),
+                Text('上传到云端'),
               ],
             ),
           ),
@@ -572,5 +615,420 @@ class _BackupManagementScreenState extends State<BackupManagementScreen> {
     );
 
     await backupProvider.updateSettings(newSettings);
+  }
+
+  /// 云端同步区域
+  Widget _buildCloudSyncSection(
+    BuildContext context,
+    BackupProvider backupProvider,
+  ) {
+    // 使用缓存的配置，避免每次 build 都查询数据库
+    if (!_configLoaded) {
+      return const SizedBox.shrink();
+    }
+
+    final hasConfig = _cachedConfig != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Row(
+            children: [
+              const Text(
+                '云端同步 (WebDAV)',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.settings),
+                onPressed: () => _openWebDAVSettings(context),
+                tooltip: '配置 WebDAV',
+              ),
+            ],
+          ),
+        ),
+        if (!hasConfig)
+          _buildNoConfigCard(context)
+        else
+          _buildCloudSyncCard(context, backupProvider, _cachedConfig!),
+      ],
+    );
+  }
+
+  /// 未配置卡片
+  Widget _buildNoConfigCard(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            const Text('未配置 WebDAV 服务器'),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () => _openWebDAVSettings(context),
+              icon: const Icon(Icons.settings),
+              label: const Text('立即配置'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 云端同步卡片
+  Widget _buildCloudSyncCard(
+    BuildContext context,
+    BackupProvider backupProvider,
+    WebDAVConfig config,
+  ) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.cloud, color: Colors.blue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _extractServerName(config.serverUrl),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            ),
+            if (backupProvider.lastCloudSyncTime != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                '最后同步：${_formatDateTime(backupProvider.lastCloudSyncTime!)}',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+            const SizedBox(height: 16),
+            // 移动端优化：使用列布局避免按钮文字挤压
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // 小屏幕使用列布局，大屏幕使用行布局
+                final isSmallScreen = constraints.maxWidth < 400;
+
+                if (isSmallScreen) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _handleRestoreFromCloud(context, backupProvider),
+                        icon: const Icon(Icons.cloud_download),
+                        label: const Text('从云端恢复'),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: () => _handleUploadToCloud(context, backupProvider),
+                        icon: const Icon(Icons.cloud_upload),
+                        label: const Text('上传到云端'),
+                      ),
+                    ],
+                  );
+                } else {
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _handleRestoreFromCloud(context, backupProvider),
+                          icon: const Icon(Icons.cloud_download),
+                          label: const Text('从云端恢复'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _handleUploadToCloud(context, backupProvider),
+                          icon: const Icon(Icons.cloud_upload),
+                          label: const Text('上传到云端'),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 提取服务器名称
+  String _extractServerName(String url) {
+    try {
+      final uri = Uri.parse(url);
+      return uri.host;
+    } catch (e) {
+      return url;
+    }
+  }
+
+  /// 打开 WebDAV 设置
+  Future<void> _openWebDAVSettings(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const WebDAVSetupScreen(),
+      ),
+    );
+
+    // 返回后刷新配置
+    await _refreshWebDAVConfig();
+  }
+
+  /// 处理从云端恢复
+  Future<void> _handleRestoreFromCloud(
+    BuildContext context,
+    BackupProvider backupProvider,
+  ) async {
+    bool isLoadingDialogShown = false;
+
+    try {
+      // 显示加载对话框
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('正在获取云端备份列表...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      isLoadingDialogShown = true;
+
+      // 获取云端备份列表
+      final cloudBackups = await backupProvider.getCloudBackups();
+
+      if (!context.mounted) return;
+
+      // 关闭加载对话框
+      if (isLoadingDialogShown) {
+        Navigator.pop(context);
+        isLoadingDialogShown = false;
+      }
+
+      if (cloudBackups.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('云端暂无备份')),
+        );
+        return;
+      }
+
+      // 显示云端备份选择对话框
+      final selectedBackup = await showDialog(
+        context: context,
+        builder: (context) => CloudBackupListDialog(backups: cloudBackups),
+      );
+
+      if (!context.mounted) return;
+      if (selectedBackup == null) return;
+
+      // 显示确认对话框
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('恢复云端备份'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '确定要恢复到 ${_formatDateTime(selectedBackup.metadata.createdAt)} 的备份吗？',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                _buildInfoRow('设备', selectedBackup.metadata.deviceId),
+                _buildInfoRow('交易数', '${selectedBackup.metadata.transactionCount} 条'),
+                const SizedBox(height: 12),
+                const Text(
+                  '当前数据将被替换，此操作不可撤销。',
+                  style: TextStyle(color: Colors.red, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('确定'),
+            ),
+          ],
+        ),
+      );
+
+      if (!context.mounted) return;
+      if (confirmed != true) return;
+
+      // 执行恢复
+      final success = await backupProvider.restoreFromCloud(selectedBackup);
+
+      if (!context.mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('从云端恢复成功，请重启应用')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('从云端恢复失败：${backupProvider.errorMessage}')),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+
+      // 只关闭加载对话框（如果还在显示）
+      if (isLoadingDialogShown) {
+        Navigator.pop(context);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('操作失败：$e')),
+      );
+    }
+  }
+
+  /// 处理上传到云端
+  Future<void> _handleUploadToCloud(
+    BuildContext context,
+    BackupProvider backupProvider,
+  ) async {
+    // 显示确认对话框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('上传到云端'),
+        content: const Text('确定要将当前数据上传到云端吗？\n\n这将创建一个新的云端备份。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // 执行上传
+    final success = await backupProvider.uploadCurrentDataToCloud();
+
+    if (!context.mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('上传到云端成功')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('上传失败：${backupProvider.errorMessage}')),
+      );
+    }
+  }
+
+  /// 处理上传备份到云端
+  Future<void> _handleUploadBackupToCloud(
+    BuildContext context,
+    BackupProvider backupProvider,
+    BackupInfo backup,
+  ) async {
+    // 显示确认对话框
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('上传到云端'),
+        content: Text('确定要将 ${backup.createdAtFormatted} 的备份上传到云端吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // 执行上传
+    final success = await backupProvider.uploadToCloud(backup);
+
+    if (!context.mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('上传到云端成功')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('上传失败：${backupProvider.errorMessage}')),
+      );
+    }
+  }
+
+  /// 构建信息行（移动端优化）
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              '$label：',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

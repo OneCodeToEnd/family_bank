@@ -449,6 +449,7 @@ class _WebDAVSetupScreenState extends State<WebDAVSetupScreen> {
         SnackBar(
           content: Text('连接测试失败: $e'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
     } finally {
@@ -501,6 +502,7 @@ class _WebDAVSetupScreenState extends State<WebDAVSetupScreen> {
         SnackBar(
           content: Text('保存失败: $e'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
     } finally {
@@ -552,6 +554,7 @@ class _WebDAVSetupScreenState extends State<WebDAVSetupScreen> {
         SnackBar(
           content: Text('删除失败: $e'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
     }

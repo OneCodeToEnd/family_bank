@@ -85,6 +85,7 @@ dependencies:
 
   # 应用信息
   package_info_plus: ^8.0.0
+  device_info_plus: ^11.0.0
 
   # 生物识别 (V1.1)
   # local_auth: ^2.2.0
