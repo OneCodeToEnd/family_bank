@@ -5,6 +5,8 @@ import '../models/category_stat_node.dart';
 import '../services/database/transaction_db_service.dart';
 import '../services/database/rule_db_service.dart';
 import '../services/database/category_db_service.dart';
+import '../services/database/annual_budget_db_service.dart';
+import '../services/database/family_db_service.dart';
 
 /// 账单流水状态管理
 class TransactionProvider with ChangeNotifier {
@@ -589,7 +591,7 @@ class TransactionProvider with ChangeNotifier {
       final List<CategoryStatNode> statNodes = [];
       for (var category in topCategories) {
         if (category.id == null) continue;
-        final node = await _buildCategoryStatNode(category);
+        final node = await _buildCategoryStatNode(category, isTopLevel: true);
         statNodes.add(node);
       }
 
@@ -601,7 +603,10 @@ class TransactionProvider with ChangeNotifier {
   }
 
   /// 递归构建分类统计节点
-  Future<CategoryStatNode> _buildCategoryStatNode(category_model.Category category) async {
+  Future<CategoryStatNode> _buildCategoryStatNode(
+    category_model.Category category, {
+    bool isTopLevel = false,
+  }) async {
     final categoryDbService = CategoryDbService();
 
     // 获取子分类
@@ -610,7 +615,7 @@ class TransactionProvider with ChangeNotifier {
     // 递归构建子节点
     final List<CategoryStatNode> childNodes = [];
     for (var child in children) {
-      final childNode = await _buildCategoryStatNode(child);
+      final childNode = await _buildCategoryStatNode(child, isTopLevel: false);
       childNodes.add(childNode);
     }
 
@@ -622,13 +627,132 @@ class TransactionProvider with ChangeNotifier {
       accountId: _filterAccountId,
     );
 
+    final amount = (stats['total_amount'] as num?)?.toDouble() ?? 0.0;
+    final transactionCount = stats['transaction_count'] as int? ?? 0;
+
+    // 只为一级分类查询预算数据
+    double? budgetAmount;
+    double? budgetUsagePercent;
+    BudgetStatus? budgetStatus;
+
+    if (isTopLevel && category.parentId == null) {
+      final budgetData = await _getBudgetData(category.id!, amount);
+      budgetAmount = budgetData['budgetAmount'];
+      budgetUsagePercent = budgetData['budgetUsagePercent'];
+      budgetStatus = budgetData['budgetStatus'];
+    }
+
     return CategoryStatNode(
       category: category,
-      amount: (stats['total_amount'] as num?)?.toDouble() ?? 0.0,
-      transactionCount: stats['transaction_count'] as int? ?? 0,
+      amount: amount,
+      transactionCount: transactionCount,
       children: childNodes,
       isExpanded: false,
+      budgetAmount: budgetAmount,
+      budgetUsagePercent: budgetUsagePercent,
+      budgetStatus: budgetStatus,
     );
+  }
+
+  /// 获取预算数据
+  Future<Map<String, dynamic>> _getBudgetData(int categoryId, double actualAmount) async {
+    try {
+      // 只在有明确时间范围时查询预算
+      if (_filterStartDate == null || _filterEndDate == null) {
+        return {
+          'budgetAmount': null,
+          'budgetUsagePercent': null,
+          'budgetStatus': null,
+        };
+      }
+
+      // 获取当前家庭ID
+      final familyDbService = FamilyDbService();
+      final families = await familyDbService.getAllFamilyGroups();
+      if (families.isEmpty) {
+        return {
+          'budgetAmount': null,
+          'budgetUsagePercent': null,
+          'budgetStatus': null,
+        };
+      }
+      final familyId = families.first.id!;
+
+      // 获取年份
+      final year = _filterStartDate!.year;
+
+      // 查询年度预算
+      final budgetDbService = AnnualBudgetDbService();
+      final budget = await budgetDbService.getAnnualBudgetByCategoryAndYear(
+        familyId,
+        categoryId,
+        year,
+      );
+
+      if (budget == null) {
+        return {
+          'budgetAmount': null,
+          'budgetUsagePercent': null,
+          'budgetStatus': null,
+        };
+      }
+
+      // 根据时间范围计算预算金额
+      final budgetAmount = _calculateBudgetAmount(
+        budget.annualAmount,
+        _filterStartDate!,
+        _filterEndDate!,
+      );
+
+      // 计算使用百分比
+      final usagePercent = budgetAmount > 0 ? (actualAmount / budgetAmount * 100) : 0.0;
+
+      // 判断预算状态
+      final status = _calculateBudgetStatus(actualAmount, budgetAmount);
+
+      return {
+        'budgetAmount': budgetAmount,
+        'budgetUsagePercent': usagePercent,
+        'budgetStatus': status,
+      };
+    } catch (e) {
+      debugPrint('获取预算数据失败: $e');
+      return {
+        'budgetAmount': null,
+        'budgetUsagePercent': null,
+        'budgetStatus': null,
+      };
+    }
+  }
+
+  /// 根据时间范围计算预算金额
+  double _calculateBudgetAmount(double annualAmount, DateTime startDate, DateTime endDate) {
+    final daysDiff = endDate.difference(startDate).inDays + 1;
+
+    // 判断时间范围类型
+    if (daysDiff <= 31) {
+      // 本月：年度预算 ÷ 12
+      return annualAmount / 12;
+    } else if (daysDiff <= 92) {
+      // 本季度：年度预算 ÷ 4
+      return annualAmount / 4;
+    } else if (daysDiff <= 366) {
+      // 本年：年度预算
+      return annualAmount;
+    } else {
+      // 自定义范围：按天数比例计算
+      return annualAmount * daysDiff / 365;
+    }
+  }
+
+  /// 计算预算状态
+  BudgetStatus? _calculateBudgetStatus(double actualAmount, double budgetAmount) {
+    if (budgetAmount <= 0) return null;
+
+    final percent = actualAmount / budgetAmount;
+    if (percent >= 1.0) return BudgetStatus.exceeded;
+    if (percent >= 0.8) return BudgetStatus.warning;
+    return BudgetStatus.normal;
   }
 
   /// 加载指定分类的流水明细

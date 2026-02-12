@@ -44,6 +44,18 @@ class _CategoryStatNodeWidgetState extends State<CategoryStatNodeWidget> {
         // 分类信息行
         _buildCategoryRow(percentage),
 
+        // 预算信息（仅一级分类显示）
+        if (widget.level == 0 && widget.node.budgetAmount != null)
+          _buildBudgetInfo(),
+
+        // 预算进度条（仅一级分类显示）
+        if (widget.level == 0 && widget.node.budgetAmount != null)
+          _buildBudgetProgress(),
+
+        // 设置预算按钮（一级分类且无预算）
+        if (widget.level == 0 && widget.node.budgetAmount == null)
+          _buildSetBudgetButton(),
+
         // 子分类列表（如果有且已展开）
         if (_isExpanded && widget.node.children.isNotEmpty)
           ...widget.node.children.map((child) {
@@ -285,5 +297,134 @@ class _CategoryStatNodeWidgetState extends State<CategoryStatNodeWidget> {
 
     // 触发父组件刷新，更新统计数据
     widget.onUpdate();
+  }
+
+  /// 构建预算信息行
+  Widget _buildBudgetInfo() {
+    final budgetAmount = widget.node.budgetAmount!;
+    final remaining = budgetAmount - widget.node.amount;
+    final isExceeded = remaining < 0;
+
+    // 根据屏幕宽度调整字体大小
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final fontSize = isSmallScreen ? 11.0 : 12.0;
+
+    // 确定时间范围文案
+    String timeRangeText = '月';
+    final provider = context.read<TransactionProvider>();
+    if (provider.filterStartDate != null && provider.filterEndDate != null) {
+      final daysDiff = provider.filterEndDate!.difference(provider.filterStartDate!).inDays + 1;
+      if (daysDiff <= 31) {
+        timeRangeText = '月';
+      } else if (daysDiff <= 92) {
+        timeRangeText = '季';
+      } else if (daysDiff <= 366) {
+        timeRangeText = '年';
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 44, right: 16, top: 4, bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '预算 ¥${budgetAmount.toStringAsFixed(0)}/$timeRangeText',
+            style: TextStyle(fontSize: fontSize, color: Colors.grey[700]),
+          ),
+          Row(
+            children: [
+              Text(
+                isExceeded
+                    ? '超支 ¥${(-remaining).toStringAsFixed(0)}'
+                    : '剩余 ¥${remaining.toStringAsFixed(0)}',
+                style: TextStyle(
+                  fontSize: fontSize,
+                  color: isExceeded ? Colors.red : Colors.green,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (isExceeded) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.warning_amber, size: 14, color: Colors.red),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建预算进度条
+  Widget _buildBudgetProgress() {
+    final percent = widget.node.budgetUsagePercent ?? 0;
+    final status = widget.node.budgetStatus ?? BudgetStatus.normal;
+
+    Color progressColor;
+    switch (status) {
+      case BudgetStatus.normal:
+        progressColor = Colors.green;
+        break;
+      case BudgetStatus.warning:
+        progressColor = Colors.orange;
+        break;
+      case BudgetStatus.exceeded:
+        progressColor = Colors.red;
+        break;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 44, right: 16, bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (percent / 100).clamp(0.0, 1.0),
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                minHeight: 6,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '${percent.toStringAsFixed(0)}%',
+            style: TextStyle(
+              fontSize: 11,
+              color: progressColor,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 构建设置预算按钮
+  Widget _buildSetBudgetButton() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 44, right: 16, top: 4, bottom: 4),
+      child: TextButton.icon(
+        onPressed: () {
+          // TODO: 导航到预算设置页面
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('预算设置功能即将上线')),
+          );
+        },
+        icon: Icon(Icons.add_circle_outline, size: 16, color: Colors.grey[600]),
+        label: Text(
+          '设置预算',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          alignment: Alignment.centerLeft,
+          minimumSize: const Size(0, 32),
+        ),
+      ),
+    );
   }
 }
