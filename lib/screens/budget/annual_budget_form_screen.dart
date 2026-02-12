@@ -9,7 +9,13 @@ import '../../utils/category_icon_utils.dart';
 
 /// 年度预算设置页面
 class AnnualBudgetFormScreen extends StatefulWidget {
-  const AnnualBudgetFormScreen({super.key});
+  /// 初始选中的分类ID（用于从分析页面跳转时自动选中）
+  final int? initialCategoryId;
+
+  const AnnualBudgetFormScreen({
+    super.key,
+    this.initialCategoryId,
+  });
 
   @override
   State<AnnualBudgetFormScreen> createState() => _AnnualBudgetFormScreenState();
@@ -31,6 +37,26 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
 
   Future<void> _loadCategories() async {
     await context.read<CategoryProvider>().loadCategories();
+
+    // 如果指定了初始分类ID，自动选中该分类
+    if (widget.initialCategoryId != null) {
+      setState(() {
+        _selectedCategories[widget.initialCategoryId!] = true;
+      });
+
+      // 延迟滚动到该分类（等待列表渲染完成）
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _scrollToCategory(widget.initialCategoryId!);
+        }
+      });
+    }
+  }
+
+  /// 滚动到指定分类
+  void _scrollToCategory(int categoryId) {
+    // TODO: 如果需要滚动功能，可以使用 ScrollController
+    // 目前只是自动选中，用户可以直接看到并编辑
   }
 
   /// 判断分类是否有子分类
@@ -454,6 +480,11 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
+
+      // 如果是从分析页面跳转过来的，返回 true 表示已保存
+      if (widget.initialCategoryId != null) {
+        Navigator.pop(context, true);
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

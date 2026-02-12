@@ -6,6 +6,7 @@ import '../providers/transaction_provider.dart';
 import '../utils/category_icon_utils.dart';
 import 'transaction_item_widget.dart';
 import 'transaction_detail_sheet.dart';
+import '../screens/budget/annual_budget_form_screen.dart';
 
 /// 分类统计节点组件
 /// 递归渲染分类树，支持展开/收起子分类和流水明细
@@ -409,10 +410,7 @@ class _CategoryStatNodeWidgetState extends State<CategoryStatNodeWidget> {
       padding: const EdgeInsets.only(left: 44, right: 16, top: 4, bottom: 4),
       child: TextButton.icon(
         onPressed: () {
-          // TODO: 导航到预算设置页面
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('预算设置功能即将上线')),
-          );
+          _navigateToBudgetForm();
         },
         icon: Icon(Icons.add_circle_outline, size: 16, color: Colors.grey[600]),
         label: Text(
@@ -426,5 +424,22 @@ class _CategoryStatNodeWidgetState extends State<CategoryStatNodeWidget> {
         ),
       ),
     );
+  }
+
+  /// 导航到预算设置页面
+  void _navigateToBudgetForm() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AnnualBudgetFormScreen(
+          initialCategoryId: widget.node.category.id,
+        ),
+      ),
+    );
+
+    // 如果设置了预算，刷新统计数据
+    if (result == true && mounted) {
+      widget.onUpdate();
+    }
   }
 }
