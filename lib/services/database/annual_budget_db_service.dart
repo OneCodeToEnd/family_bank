@@ -258,6 +258,7 @@ class AnnualBudgetDbService {
   }
 
   /// 获取年度总预算进度（汇总所有分类）
+  /// 只统计一级分类的预算，但实际支出包含所有子分类
   Future<Map<String, dynamic>> getTotalYearlyBudgetProgress(
     int familyId,
     int year,
@@ -268,23 +269,46 @@ class AnnualBudgetDbService {
 
     AppLogger.d('查询年度预算进度: familyId=$familyId, year=$year, type=$type');
 
-    final result = await db.rawQuery('''\n      SELECT
-        COALESCE(SUM(ab.${DbConstants.columnAnnualBudgetAnnualAmount}), 0) as total_budget,
-        COALESCE(SUM(t.amount), 0) as total_actual
-      FROM ${DbConstants.tableAnnualBudgets} ab
-      LEFT JOIN (
+    final result = await db.rawQuery('''\n      WITH RECURSIVE category_tree AS (
+        -- 基础查询：选择预算分类本身（只包含一级分类）
         SELECT
-          ${DbConstants.columnTransactionCategoryId},
-          SUM(${DbConstants.columnTransactionAmount}) as amount
-        FROM ${DbConstants.tableTransactions}
-        WHERE ${DbConstants.columnTransactionType} = ?
-          AND strftime('%Y', datetime(${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
-        GROUP BY ${DbConstants.columnTransactionCategoryId}
-      ) t ON t.${DbConstants.columnTransactionCategoryId} = ab.${DbConstants.columnAnnualBudgetCategoryId}
+          ab.${DbConstants.columnId} as budget_id,
+          c.${DbConstants.columnId} as category_id
+        FROM ${DbConstants.tableAnnualBudgets} ab
+        INNER JOIN ${DbConstants.tableCategories} c
+          ON ab.${DbConstants.columnAnnualBudgetCategoryId} = c.${DbConstants.columnId}
+        WHERE ab.${DbConstants.columnAnnualBudgetFamilyId} = ?
+          AND ab.${DbConstants.columnAnnualBudgetYear} = ?
+          AND ab.${DbConstants.columnAnnualBudgetType} = ?
+          AND c.${DbConstants.columnCategoryParentId} IS NULL
+
+        UNION ALL
+
+        -- 递归查询：选择所有子分类
+        SELECT
+          ct.budget_id,
+          c.${DbConstants.columnId} as category_id
+        FROM ${DbConstants.tableCategories} c
+        INNER JOIN category_tree ct
+          ON c.${DbConstants.columnCategoryParentId} = ct.category_id
+      )
+      SELECT
+        COALESCE(SUM(ab.${DbConstants.columnAnnualBudgetAnnualAmount}), 0) as total_budget,
+        COALESCE(SUM(t.${DbConstants.columnTransactionAmount}), 0) as total_actual
+      FROM ${DbConstants.tableAnnualBudgets} ab
+      INNER JOIN ${DbConstants.tableCategories} c
+        ON ab.${DbConstants.columnAnnualBudgetCategoryId} = c.${DbConstants.columnId}
+      LEFT JOIN category_tree ct
+        ON ct.budget_id = ab.${DbConstants.columnId}
+      LEFT JOIN ${DbConstants.tableTransactions} t
+        ON t.${DbConstants.columnTransactionCategoryId} = ct.category_id
+        AND t.${DbConstants.columnTransactionType} = ab.${DbConstants.columnAnnualBudgetType}
+        AND strftime('%Y', datetime(t.${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
       WHERE ab.${DbConstants.columnAnnualBudgetFamilyId} = ?
         AND ab.${DbConstants.columnAnnualBudgetYear} = ?
         AND ab.${DbConstants.columnAnnualBudgetType} = ?
-    ''', [type, yearStr, familyId, year, type]);
+        AND c.${DbConstants.columnCategoryParentId} IS NULL
+    ''', [familyId, year, type, yearStr, familyId, year, type]);
 
     AppLogger.d('查询结果: $result');
 
@@ -317,6 +341,7 @@ class AnnualBudgetDbService {
   }
 
   /// 获取月度总预算进度（汇总所有分类）
+  /// 只统计一级分类的预算，但实际支出包含所有子分类
   Future<Map<String, dynamic>> getTotalMonthlyBudgetProgress(
     int familyId,
     int year,
@@ -329,24 +354,47 @@ class AnnualBudgetDbService {
 
     AppLogger.d('查询月度预算进度: familyId=$familyId, year=$year, month=$month, type=$type');
 
-    final result = await db.rawQuery('''\n      SELECT
-        COALESCE(SUM(ab.${DbConstants.columnAnnualBudgetMonthlyAmount}), 0) as total_budget,
-        COALESCE(SUM(t.amount), 0) as total_actual
-      FROM ${DbConstants.tableAnnualBudgets} ab
-      LEFT JOIN (
+    final result = await db.rawQuery('''\n      WITH RECURSIVE category_tree AS (
+        -- 基础查询：选择预算分类本身（只包含一级分类）
         SELECT
-          ${DbConstants.columnTransactionCategoryId},
-          SUM(${DbConstants.columnTransactionAmount}) as amount
-        FROM ${DbConstants.tableTransactions}
-        WHERE ${DbConstants.columnTransactionType} = ?
-          AND strftime('%Y', datetime(${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
-          AND strftime('%m', datetime(${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
-        GROUP BY ${DbConstants.columnTransactionCategoryId}
-      ) t ON t.${DbConstants.columnTransactionCategoryId} = ab.${DbConstants.columnAnnualBudgetCategoryId}
+          ab.${DbConstants.columnId} as budget_id,
+          c.${DbConstants.columnId} as category_id
+        FROM ${DbConstants.tableAnnualBudgets} ab
+        INNER JOIN ${DbConstants.tableCategories} c
+          ON ab.${DbConstants.columnAnnualBudgetCategoryId} = c.${DbConstants.columnId}
+        WHERE ab.${DbConstants.columnAnnualBudgetFamilyId} = ?
+          AND ab.${DbConstants.columnAnnualBudgetYear} = ?
+          AND ab.${DbConstants.columnAnnualBudgetType} = ?
+          AND c.${DbConstants.columnCategoryParentId} IS NULL
+
+        UNION ALL
+
+        -- 递归查询：选择所有子分类
+        SELECT
+          ct.budget_id,
+          c.${DbConstants.columnId} as category_id
+        FROM ${DbConstants.tableCategories} c
+        INNER JOIN category_tree ct
+          ON c.${DbConstants.columnCategoryParentId} = ct.category_id
+      )
+      SELECT
+        COALESCE(SUM(ab.${DbConstants.columnAnnualBudgetMonthlyAmount}), 0) as total_budget,
+        COALESCE(SUM(t.${DbConstants.columnTransactionAmount}), 0) as total_actual
+      FROM ${DbConstants.tableAnnualBudgets} ab
+      INNER JOIN ${DbConstants.tableCategories} c
+        ON ab.${DbConstants.columnAnnualBudgetCategoryId} = c.${DbConstants.columnId}
+      LEFT JOIN category_tree ct
+        ON ct.budget_id = ab.${DbConstants.columnId}
+      LEFT JOIN ${DbConstants.tableTransactions} t
+        ON t.${DbConstants.columnTransactionCategoryId} = ct.category_id
+        AND t.${DbConstants.columnTransactionType} = ab.${DbConstants.columnAnnualBudgetType}
+        AND strftime('%Y', datetime(t.${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
+        AND strftime('%m', datetime(t.${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) = ?
       WHERE ab.${DbConstants.columnAnnualBudgetFamilyId} = ?
         AND ab.${DbConstants.columnAnnualBudgetYear} = ?
         AND ab.${DbConstants.columnAnnualBudgetType} = ?
-    ''', [type, yearStr, monthStr, familyId, year, type]);
+        AND c.${DbConstants.columnCategoryParentId} IS NULL
+    ''', [familyId, year, type, yearStr, monthStr, familyId, year, type]);
 
     AppLogger.d('查询结果: $result');
 

@@ -159,6 +159,19 @@ Categories form a **hierarchical tree structure**:
 - Categories can be hidden without deletion
 - Auto-categorization uses keyword matching rules with priority and confidence scores
 
+### Budget Management System
+The app supports **annual budget planning with automatic monthly breakdown**:
+- **Only top-level categories (parentId == null) can have budgets**
+- Budget amounts are set annually and automatically divided by 12 for monthly tracking
+- Actual spending includes transactions from both parent and child categories (recursive aggregation)
+- Budget progress is calculated using recursive CTEs to sum all subcategory transactions
+- Supports both income and expense budgets
+- Budget alerts trigger at 80% and 100% usage thresholds
+- Key services:
+  - `AnnualBudgetDbService` - CRUD operations and statistics with recursive CTEs
+  - `BudgetAlertService` - Manages budget alerts and notifications
+  - `BudgetProvider` - State management with validation (enforces top-level category rule)
+
 ### Transaction Import & Deduplication
 - Supports CSV and Excel file imports
 - Deduplication uses SHA-256 hash of: `account_id + transaction_time + amount + description`

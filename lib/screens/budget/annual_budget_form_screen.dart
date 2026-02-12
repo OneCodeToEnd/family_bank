@@ -19,7 +19,6 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final Map<int, TextEditingController> _amountControllers = {};
   final Map<int, bool> _selectedCategories = {};
-  final Set<int> _expandedCategoryIds = {}; // 展开的父分类ID集合
   bool _isSubmitting = false;
 
   @override
@@ -32,20 +31,6 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
 
   Future<void> _loadCategories() async {
     await context.read<CategoryProvider>().loadCategories();
-    // 默认展开所有一级分类
-    _expandAllTopLevel();
-  }
-
-  /// 展开所有一级分类
-  void _expandAllTopLevel() {
-    final categoryProvider = context.read<CategoryProvider>();
-    for (var category in categoryProvider.visibleCategories) {
-      if (category.parentId == null && _hasChildren(category, categoryProvider.visibleCategories)) {
-        setState(() {
-          _expandedCategoryIds.add(category.id!);
-        });
-      }
-    }
   }
 
   /// 判断分类是否有子分类
@@ -56,6 +41,17 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
   /// 获取子分类
   List<Category> _getChildren(Category parent, List<Category> allCategories) {
     return allCategories.where((c) => c.parentId == parent.id).toList();
+  }
+
+  /// 构建子分类文本（显示数量和名称）
+  String _buildChildrenText(Category parent, CategoryProvider categoryProvider) {
+    final children = _getChildren(parent, categoryProvider.visibleCategories);
+    if (children.isEmpty) {
+      return '';
+    }
+
+    final childNames = children.map((c) => c.name).join('、');
+    return '包含 ${children.length} 个子分类：$childNames';
   }
 
   @override
@@ -94,7 +90,7 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            '设置年度预算后，系统将自动计算月度预算（年度÷12）',
+                            '只能为一级分类设置预算，系统将自动计算月度预算（年度÷12）并汇总子分类的实际支出',
                             style: TextStyle(fontSize: 14, color: appColors.onInfoContainer),
                           ),
                         ),
@@ -157,6 +153,7 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
   }
 
   /// 构建分类类型区域（支出或收入）
+  /// 只显示一级分类（parentId == null），不显示子分类
   List<Widget> _buildCategoryTypeSection(
     String type,
     CategoryProvider categoryProvider,
@@ -193,40 +190,17 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
           ],
         ),
       ),
-      // 顶级分类及其子分类
-      ...topLevelCategories.expand((category) =>
-        _buildCategoryWithChildren(category, 0, categoryProvider, budgetProvider)
+      // 只显示一级分类，不递归显示子分类
+      ...topLevelCategories.map((category) =>
+        _buildTopLevelCategoryItem(category, categoryProvider, budgetProvider)
       ),
     ];
   }
 
-  /// 递归构建分类及其子分类
-  List<Widget> _buildCategoryWithChildren(
+  /// 构建一级分类项（简化版，不显示子分类树）
+  Widget _buildTopLevelCategoryItem(
     Category category,
-    int level,
     CategoryProvider categoryProvider,
-    BudgetProvider budgetProvider,
-  ) {
-    final hasChildren = _hasChildren(category, categoryProvider.visibleCategories);
-    final isExpanded = _expandedCategoryIds.contains(category.id);
-    final children = hasChildren ? _getChildren(category, categoryProvider.visibleCategories) : <Category>[];
-
-    return [
-      _buildCategoryItem(category, level, hasChildren, isExpanded, budgetProvider),
-      // 如果展开且有子分类，递归显示子分类
-      if (isExpanded && hasChildren)
-        ...children.expand((child) =>
-          _buildCategoryWithChildren(child, level + 1, categoryProvider, budgetProvider)
-        ),
-    ];
-  }
-
-  /// 构建分类项
-  Widget _buildCategoryItem(
-    Category category,
-    int level,
-    bool hasChildren,
-    bool isExpanded,
     BudgetProvider budgetProvider,
   ) {
     // 检查是否已有预算
@@ -250,10 +224,9 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
     final iconData = CategoryIconUtils.getIconData(category.icon ?? 'category');
     final color = CategoryIconUtils.getColor(category.color);
 
-    // 计算月度金额（包括汇总）
+    // 计算月度金额
     double annualAmount = 0;
     double monthlyAmount = 0;
-    bool isAggregated = false;
 
     if (controller.text.isNotEmpty) {
       try {
@@ -263,60 +236,21 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
         annualAmount = 0;
         monthlyAmount = 0;
       }
-    } else if (hasChildren) {
-      // 如果父分类没有自己的预算，计算子分类的汇总
-      final children = _getChildren(category, context.read<CategoryProvider>().visibleCategories);
-      for (final child in children) {
-        final childController = _amountControllers[child.id];
-        if (childController != null && childController.text.isNotEmpty) {
-          try {
-            annualAmount += double.parse(childController.text);
-          } catch (e) {
-            // 忽略无效输入
-          }
-        }
-      }
-      if (annualAmount > 0) {
-        monthlyAmount = annualAmount / 12;
-        isAggregated = true;
-      }
     }
 
+    // 检查是否有子分类
+    final hasChildren = _hasChildren(category, categoryProvider.visibleCategories);
+
     return Card(
-      margin: EdgeInsets.only(bottom: 8, left: level * 16.0),
+      margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 第一行：展开按钮、复选框、图标、名称、汇总按钮
+            // 第一行：复选框、图标、名称
             Row(
               children: [
-                // 展开/折叠按钮或占位
-                if (hasChildren)
-                  IconButton(
-                    icon: Icon(
-                      isExpanded ? Icons.expand_more : Icons.chevron_right,
-                      size: 20,
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 40,
-                      minHeight: 40,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        if (isExpanded) {
-                          _expandedCategoryIds.remove(category.id);
-                        } else {
-                          _expandedCategoryIds.add(category.id!);
-                        }
-                      });
-                    },
-                  )
-                else
-                  const SizedBox(width: 40),
-
                 // 复选框
                 Checkbox(
                   value: isSelected,
@@ -346,38 +280,39 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      category.name,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (isAggregated) ...[
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '(汇总)',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                              // 分类名称
+                              Text(
+                                category.name,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              if (monthlyAmount > 0)
+                              // 子分类信息
+                              if (hasChildren) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  _buildChildrenText(category, categoryProvider),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              // 预算金额预览
+                              if (monthlyAmount > 0) ...[
+                                const SizedBox(height: 2),
                                 Text(
                                   '年度: ${annualAmount.toStringAsFixed(0)}元 → ${monthlyAmount.toStringAsFixed(0)}元/月',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isAggregated ? Colors.blue[700] : Colors.grey[600],
+                                    color: Colors.grey[600],
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                         ),
@@ -385,30 +320,6 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
                     ),
                   ),
                 ),
-
-                // 汇总按钮（仅父级分类显示）
-                if (hasChildren)
-                  Builder(
-                    builder: (context) {
-                      final appColors = context.appColors;
-                      return Tooltip(
-                        message: '从子分类汇总',
-                        child: IconButton(
-                          icon: const Icon(Icons.calculate, size: 20),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 40,
-                            minHeight: 40,
-                          ),
-                          onPressed: () => _aggregateFromChildren(category),
-                          style: IconButton.styleFrom(
-                            backgroundColor: appColors.infoContainer,
-                            foregroundColor: appColors.infoColor,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
               ],
             ),
 
@@ -448,54 +359,6 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  /// 从子分类汇总预算
-  void _aggregateFromChildren(Category category) {
-    final categoryProvider = context.read<CategoryProvider>();
-    final children = _getChildren(category, categoryProvider.visibleCategories);
-
-    if (children.isEmpty) {
-      return;
-    }
-
-    double total = 0;
-    int count = 0;
-
-    for (final child in children) {
-      final controller = _amountControllers[child.id];
-      if (controller != null && controller.text.isNotEmpty) {
-        try {
-          total += double.parse(controller.text);
-          count++;
-        } catch (e) {
-          // 忽略无效输入
-        }
-      }
-    }
-
-    if (count == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('子分类中没有设置预算'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-
-    // 更新父级输入框
-    setState(() {
-      _amountControllers[category.id]?.text = total.toStringAsFixed(0);
-      _selectedCategories[category.id!] = true; // 自动选中
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('已汇总 $count 个子分类，共 ${total.toStringAsFixed(0)} 元'),
-        duration: const Duration(seconds: 2),
       ),
     );
   }

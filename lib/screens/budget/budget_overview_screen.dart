@@ -142,9 +142,11 @@ class _BudgetOverviewScreenState extends State<BudgetOverviewScreen> {
   }
 
   /// 预算概览卡片
+  /// 汇总所有一级分类的预算（系统已限制只能为一级分类设置预算）
   Widget _buildSummaryCard(BudgetProvider provider) {
     final expenseBudgets = provider.expenseBudgets;
     final incomeBudgets = provider.incomeBudgets;
+    // 由于系统限制只能为一级分类设置预算，这里直接累加即可
     final totalExpense = expenseBudgets.fold<double>(0, (sum, b) => sum + b.annualAmount);
     final totalIncome = incomeBudgets.fold<double>(0, (sum, b) => sum + b.annualAmount);
 

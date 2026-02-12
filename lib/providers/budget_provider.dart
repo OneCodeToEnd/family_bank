@@ -2,11 +2,15 @@ import 'package:flutter/foundation.dart';
 import '../models/annual_budget.dart';
 import '../services/database/annual_budget_db_service.dart';
 import '../services/budget_alert_service.dart';
+import 'category_provider.dart';
 
 /// 预算状态管理
 class BudgetProvider with ChangeNotifier {
   final AnnualBudgetDbService _dbService = AnnualBudgetDbService();
   final BudgetAlertService _alertService = BudgetAlertService();
+  final CategoryProvider? _categoryProvider;
+
+  BudgetProvider({CategoryProvider? categoryProvider}) : _categoryProvider = categoryProvider;
 
   // 状态数据
   List<AnnualBudget> _budgets = [];
@@ -52,9 +56,23 @@ class BudgetProvider with ChangeNotifier {
   }
 
   /// 创建年度预算
+  /// 只允许为一级分类（parentId == null）设置预算
   Future<bool> createAnnualBudget(int categoryId, double annualAmount, String type) async {
     _setLoading(true);
     try {
+      // 验证：只允许为一级分类设置预算
+      if (_categoryProvider != null) {
+        final category = _categoryProvider.getCategoryById(categoryId);
+        if (category == null) {
+          _setError('分类不存在');
+          return false;
+        }
+        if (category.parentId != null) {
+          _setError('只能为一级分类设置预算，不能为子分类设置预算');
+          return false;
+        }
+      }
+
       // 检查预算是否已存在
       final exists = await _dbService.budgetExists(_currentFamilyId, categoryId, _currentYear);
       if (exists) {
