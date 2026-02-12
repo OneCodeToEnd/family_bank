@@ -300,7 +300,7 @@ flutter run -d windows
 5. **生成图标**（运行命令）
 6. **测试效果**（在各平台运行）
 
-详细设计指南请查看: [docs/APP_ICON_DESIGN_GUIDE.md](./APP_ICON_DESIGN_GUIDE.md)
+详细设计指南请查看: [应用图标设计指南](../design/ui/app-icon-design.md)
 
 ---
 

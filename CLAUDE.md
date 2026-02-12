@@ -1,262 +1,57 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件为 Claude Code 提供项目开发指导和规范。
 
-## Project Overview
+## 文档管理规范
 
-**账清 (Family Bank)** is a cross-platform family financial management application built with Flutter. It supports multi-account management, transaction categorization, data analysis, and bill import functionality. All data is stored locally using SQLite with optional encryption.
+**所有设计方案文档必须存放在 `docs/` 目录下的相应子目录中，禁止在项目根目录创建设计文档。**
 
-## Development Commands
+### 文档分类规则
 
-### Setup
-```bash
-# Install dependencies
-flutter pub get
+- **功能设计** → `docs/features/` - 新功能需求和设计
+- **架构设计** → `docs/architecture/` - 系统架构和技术选型
+- **详细设计** → `docs/design/` - 算法、数据结构、业务流程
+- **实现方案** → `docs/implementation/` - 具体实现细节
+- **开发规范** → `docs/development/` - 开发流程和规范
+- **参考文档** → `docs/reference/` - API、Schema、更新日志
 
-# Check Flutter environment
-flutter doctor
+### 命名规范
 
-# Check available devices
-flutter devices
-```
+- 使用小写字母，单词用中划线（-）连接
+- 示例：`budget-management.md`、`webdav-sync.md`
 
-### Running the App
-```bash
-# Run on default device
-flutter run
+### 文档内容要求
 
-# Run on specific platforms
-flutter run -d macos
-flutter run -d iphone
-flutter run -d chrome
-flutter run -d windows
-flutter run -d linux
+每个设计文档应包含：标题概述、背景动机、设计目标、详细设计、技术选型、实现计划、风险注意事项
 
-# Run with specific modes
-flutter run --debug    # Debug mode (default)
-flutter run --profile  # Profile mode for performance analysis
-flutter run --release  # Release mode
-```
+## 开发规范
 
-### Code Quality
-```bash
-# Analyze code for issues
-flutter analyze
+### 提交规范
+- 遵循 Conventional Commits：feat/fix/docs/refactor/test/chore
+- 提交信息使用中文
 
-# Run tests
-flutter test
+### 项目特定规范
 
-# Run specific test file
-flutter test test/widget_test.dart
+**Provider 使用：**
+- 必须在 `main.dart` 初始化
+- 调用后必须 `notifyListeners()`
 
-# Clean build artifacts
-flutter clean
-```
+**数据库操作：**
+- 使用参数化查询防注入
+- 批量操作使用事务
+- 版本升级提供迁移脚本
 
-### Building
-```bash
-# Android
-flutter build apk --debug
-flutter build apk --release
-flutter build appbundle --release  # For Google Play
 
-# iOS (requires macOS)
-flutter build ios --release
-open ios/Runner.xcworkspace
+## 注意事项
 
-# Desktop
-flutter build macos --release
-flutter build windows --release
-flutter build linux --release
+1. 用户数据本地存储，不上传服务器
+2. 支持数据库加密，敏感信息加密存储
+3. 大数据量查询使用分页和索引
+4. 所有异步操作添加错误处理
+5. UI设计兼容移动端、桌面端
 
-# Web
-flutter build web --release
-```
+## 参考资源
 
-### Icon Generation
-```bash
-# Generate app icons for all platforms
-flutter pub run flutter_launcher_icons
-```
-
-## Architecture
-
-### State Management
-The app uses **Provider** for state management with five main providers:
-- `FamilyProvider` - Manages family groups and members
-- `AccountProvider` - Manages financial accounts
-- `CategoryProvider` - Manages transaction categories (hierarchical tree structure)
-- `TransactionProvider` - Manages transaction records
-- `SettingsProvider` - Manages app settings and theme
-
-All providers are initialized in `main.dart` using `MultiProvider` and must be initialized before use.
-
-### Database Layer
-The app uses **SQLite** (via sqflite) with a centralized database service:
-- `DatabaseService` - Singleton managing database lifecycle, schema creation, and migrations
-- Current database version: 10 (see `DbConstants.dbVersion`)
-- Database file: `family_bank.db` stored in app documents directory
-
-**Key Tables:**
-- `family_groups` - Family group information
-- `family_members` - Family members linked to groups
-- `accounts` - Financial accounts (Alipay, WeChat, cash, etc.)
-- `categories` - Hierarchical category tree (parent-child relationships)
-- `transactions` - Transaction records with deduplication via hash
-- `category_rules` - Keyword-based auto-categorization rules
-- `annual_budgets` - Annual budget management with monthly breakdown
-- `counterparty_groups` - Transaction counterparty grouping and classification
-- `app_settings` - Application settings
-- `http_logs` - HTTP request/response logs for debugging
-- `email_configs` - Email account configurations for bill import
-- `ai_models` - AI model configurations for transaction classification
-
-**Database Migrations:**
-- V2: Added `counterparty` field to transactions
-- V3: Enhanced category rules with match types, confidence scores, and auto-learning
-- V4: Added HTTP logging table
-- V5: Added email configuration table
-- V6: Added AI model configuration table
-- V7: Added annual budgets table
-- V8: Added type field to annual_budgets
-- V9: Removed unused budgets table
-- V10: Added counterparty groups table
-
-### Service Layer Architecture
-
-**Database Services** (`lib/services/database/`):
-- Each entity has a dedicated DB service (e.g., `FamilyDbService`, `AccountDbService`)
-- Services handle CRUD operations and complex queries
-- `TransactionDbService.getHomePageStatistics()` provides optimized home page stats
-
-**AI Classification Services** (`lib/services/ai/`):
-- `AiClassifierFactory` - Creates appropriate classifier based on provider
-- `QwenClassifierService` - Qwen model integration
-- `DeepseekClassifierService` - DeepSeek model integration
-- `AiConfigService` - Manages AI configuration and prompts
-- `AiModelConfigService` - Manages AI model configurations
-
-**Category Services** (`lib/services/category/`):
-- `CategoryMatchService` - Matches transactions to categories using rules
-- `CategoryLearningService` - Learns from user corrections to improve matching
-- `BatchClassificationService` - Batch processes transactions for AI classification
-
-**Import Services** (`lib/services/import/`):
-- `BillImportService` - Handles CSV/Excel bill imports with deduplication
-- `EmailService` - Fetches bills from email accounts via IMAP
-- `UnzipService` - Extracts password-protected ZIP files
-
-**Other Services:**
-- `EncryptionService` - Handles data encryption/decryption
-- `BillValidationService` - Validates imported bill data
-- `LoggingHttpClient` - HTTP client with automatic request/response logging
-
-### Category System
-Categories form a **hierarchical tree structure**:
-- Support parent-child relationships (one level deep in current implementation)
-- Each category has: name, type (income/expense), icon, color, tags
-- System categories (`is_system=1`) are pre-populated and cannot be deleted
-- Categories can be hidden without deletion
-- Auto-categorization uses keyword matching rules with priority and confidence scores
-
-### Budget Management System
-The app supports **annual budget planning with automatic monthly breakdown**:
-- **Only top-level categories (parentId == null) can have budgets**
-- Budget amounts are set annually and automatically divided by 12 for monthly tracking
-- Actual spending includes transactions from both parent and child categories (recursive aggregation)
-- Budget progress is calculated using recursive CTEs to sum all subcategory transactions
-- Supports both income and expense budgets
-- Budget alerts trigger at 80% and 100% usage thresholds
-- Key services:
-  - `AnnualBudgetDbService` - CRUD operations and statistics with recursive CTEs
-  - `BudgetAlertService` - Manages budget alerts and notifications
-  - `BudgetProvider` - State management with validation (enforces top-level category rule)
-
-### Transaction Import & Deduplication
-- Supports CSV and Excel file imports
-- Deduplication uses SHA-256 hash of: `account_id + transaction_time + amount + description`
-- Import sources tracked via `import_source` field (manual, csv, email, etc.)
-- Transactions can be marked as "confirmed" after review
-- Email import supports fetching bills from IMAP servers with attachment extraction
-
-### AI-Powered Classification
-- Supports multiple AI providers (Qwen, DeepSeek)
-- API keys stored encrypted in database
-- Classification uses transaction description and optional counterparty
-- Batch classification for multiple transactions
-- Error handling with retry logic and fallback mechanisms
-- HTTP requests/responses logged for debugging
-
-### Navigation
-The app uses **imperative navigation** (Navigator.push) rather than declarative routing:
-- Main entry point: `HomePage` in `main.dart`
-- Major screens: TransactionListScreen, AccountListScreen, CategoryListScreen, BillImportScreen, AnalysisScreen, SettingsScreen
-- Forms use dedicated screens (e.g., TransactionFormScreen, AccountFormScreen)
-
-### Data Flow Pattern
-1. User interacts with UI (Screen)
-2. Screen calls Provider methods
-3. Provider calls Service layer
-4. Service interacts with Database
-5. Provider notifies listeners via `notifyListeners()`
-6. UI rebuilds via `Consumer` or `context.watch()`
-
-## Important Implementation Details
-
-### Provider Initialization
-All providers must be initialized before use. The `HomePage` widget handles this in `_initializeApp()` using `Future.wait()` to initialize all providers concurrently.
-
-### Transaction Hash Calculation
-When creating or importing transactions, always calculate the hash for deduplication:
-```dart
-final hash = sha256.convert(
-  utf8.encode('$accountId$timestamp$amount$description')
-).toString();
-```
-
-### Category Matching
-The category matching system uses a multi-stage approach:
-1. Exact keyword matching (highest priority)
-2. Fuzzy matching with confidence scores
-3. AI-powered classification (if enabled)
-4. User confirmation for low-confidence matches
-
-### Database Queries
-- Use parameterized queries to prevent SQL injection
-- Leverage indexes for performance (see `_createIndexes()` in DatabaseService)
-- Use transactions for batch operations
-- Foreign key constraints are enabled (CASCADE deletes)
-
-### Theme Support
-The app supports light/dark themes via `SettingsProvider.themeMode`:
-- Uses Material Design 3 (`useMaterial3: true`)
-- Theme colors derived from blue seed color
-- Theme mode persisted in app settings
-
-### Error Handling
-- Database errors should be caught and logged
-- UI should show user-friendly error messages
-- HTTP errors logged to `http_logs` table for debugging
-- Classification errors handled by `ClassificationErrorHandler`
-
-## Testing Notes
-
-### Running Tests
-- Widget tests should mock Provider dependencies
-- Database tests should use in-memory database or test database
-- Clean up test data after each test
-
-### Common Issues
-- **iOS build failures**: Run `cd ios && pod install && pod update`
-- **Android build failures**: Check SDK path in `android/local.properties`
-- **Database errors**: Uninstall and reinstall app to reset database
-- **Dependency conflicts**: Run `flutter clean && flutter pub get`
-
-## Project Roadmap Context
-
-The project follows a phased development plan (see 迭代计划.md):
-- **V1.x**: Core functionality (account management, basic categorization, import, analysis)
-- **V2.x**: AI-powered classification, family features, performance optimization
-- **V3.x**: Budget management, multi-device sync, advanced analytics
-
-Current focus is on V1.x features with AI classification capabilities from V2.x already implemented.
+- 完整文档：`docs/README.md`
+- 架构设计：`docs/architecture/overview.md`
+- 开发指南：`docs/development/setup.md`

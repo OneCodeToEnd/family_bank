@@ -75,9 +75,38 @@ flutter run
 
 ## 文档导航
 
+### 🚀 快速开始
 - [安装指南](getting-started/installation.md) - 环境配置和安装步骤
 - [快速上手](getting-started/quickstart.md) - 5分钟快速入门
-- [功能特性](features/accounts.md) - 详细功能介绍
-- [架构设计](architecture/tech-stack.md) - 技术架构说明
-- [开发指南](development/setup.md) - 开发者文档
+
+### ✨ 功能特性
+- [账户管理](features/accounts.md) - 多账户管理
+- [交易记录](features/transactions.md) - 交易记录管理
+- [分类管理](features/categories.md) - 层级分类系统
+- [AI 智能分类](features/ai-classification.md) - AI 驱动的自动分类
+- [账单导入](features/bill-import.md) - CSV/Excel 账单导入
+- [预算管理](features/budget.md) - 年度预算规划
+- [备份同步](features/backup-sync.md) - 数据备份与云端同步
+- [数据分析](features/analysis.md) - 财务数据分析
+
+### 🏗️ 架构设计
+- [架构概览](architecture/overview.md) - 整体架构设计
+- [技术栈](architecture/tech-stack.md) - 使用的技术和框架
+- [状态管理](architecture/state-management.md) - Provider 状态管理
+- [数据库](architecture/database.md) - 数据库设计
+
+### 👨‍💻 开发指南
+- [环境搭建](development/setup.md) - 开发环境配置
+- [编码规范](development/coding-standards.md) - 代码风格和规范
+- [测试指南](development/testing.md) - 单元测试和集成测试
+- [构建指南](development/building.md) - 多平台构建说明
+
+### 📖 参考文档
+- [API 参考](reference/api.md) - API 接口文档
+- [数据库模式](reference/database-schema.md) - 数据库表结构
 - [常见问题](reference/faq.md) - 疑难解答
+- [更新日志](reference/changelog.md) - 版本更新记录
+
+---
+
+📚 完整文档结构请查看项目文档导航

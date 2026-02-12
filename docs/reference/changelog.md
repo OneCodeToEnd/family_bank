@@ -131,4 +131,4 @@
 
 欢迎提交Issue和Pull Request！
 
-查看 [开发指南](development/setup.md) 了解如何参与开发。
+查看 [开发指南](../development/setup.md) 了解如何参与开发。

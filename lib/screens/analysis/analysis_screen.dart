@@ -442,9 +442,27 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   );
                 }
 
-                return SizedBox(
-                  height: 250,
-                  child: _buildLineChart(trendData),
+                return Column(
+                  children: [
+                    SizedBox(
+                      height: 250,
+                      child: _buildLineChart(trendData),
+                    ),
+                    const SizedBox(height: 12),
+                    // 图例
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(width: 12, height: 12, color: Colors.green),
+                        const SizedBox(width: 4),
+                        const Text('收入', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 16),
+                        Container(width: 12, height: 12, color: Colors.red),
+                        const SizedBox(width: 4),
+                        const Text('支出', style: TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ],
                 );
               },
             ),
@@ -458,20 +476,26 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Widget _buildLineChart(List<Map<String, dynamic>> data) {
     // 分离收入和支出数据
     final months = <String>[];
+    final incomeSpots = <FlSpot>[];
     final expenseSpots = <FlSpot>[];
 
     for (int i = 0; i < data.length; i++) {
       final item = data[i];
       final month = item['month'] as String;
-      final amount = (item['total_amount'] as num?)?.toDouble() ?? 0.0;
+      final incomeAmount = (item['income_amount'] as num?)?.toDouble() ?? 0.0;
+      final expenseAmount = (item['expense_amount'] as num?)?.toDouble() ?? 0.0;
 
       months.add(month);
-
-      // 这里需要分别获取收入和支出
-      // 由于 getMonthlyTrend 返回的是总和，我们需要分别查询
-      // 暂时使用总金额作为示例
-      expenseSpots.add(FlSpot(i.toDouble(), amount));
+      incomeSpots.add(FlSpot(i.toDouble(), incomeAmount));
+      expenseSpots.add(FlSpot(i.toDouble(), expenseAmount));
     }
+
+    // 计算最大值用于设置 Y 轴范围
+    double maxY = 0;
+    for (var spot in [...incomeSpots, ...expenseSpots]) {
+      if (spot.y > maxY) maxY = spot.y;
+    }
+    maxY = maxY * 1.1; // 增加 10% 的空间
 
     return LineChart(
       LineChartData(
@@ -542,7 +566,21 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         minX: 0,
         maxX: (months.length - 1).toDouble(),
         minY: 0,
+        maxY: maxY > 0 ? maxY : 100,
         lineBarsData: [
+          // 收入线
+          LineChartBarData(
+            spots: incomeSpots,
+            isCurved: true,
+            color: Colors.green,
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: const FlDotData(show: true),
+            belowBarData: BarAreaData(
+              show: true,
+              color: Colors.green.withValues(alpha: 0.1),
+            ),
+          ),
           // 支出线
           LineChartBarData(
             spots: expenseSpots,

@@ -514,6 +514,7 @@ class TransactionDbService {
   }
 
   /// 获取账单趋势（按月统计）
+  /// 当 type 为 null 时，同时返回收入和支出数据
   Future<List<Map<String, dynamic>>> getMonthlyTrend({
     DateTime? startDate,
     DateTime? endDate,
@@ -539,11 +540,29 @@ class TransactionDbService {
       whereArgs.add(type);
     }
 
+    // 如果指定了 type，返回单一类型的统计
+    if (type != null) {
+      final result = await db.rawQuery('''
+        SELECT
+          strftime('%Y-%m', datetime(${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) as month,
+          COUNT(*) as count,
+          SUM(${DbConstants.columnTransactionAmount}) as total_amount
+        FROM ${DbConstants.tableTransactions}
+        WHERE $whereClause
+        GROUP BY month
+        ORDER BY month ASC
+      ''', whereArgs);
+      return result;
+    }
+
+    // 未指定 type 时，同时返回收入和支出
     final result = await db.rawQuery('''
       SELECT
         strftime('%Y-%m', datetime(${DbConstants.columnTransactionTime} / 1000, 'unixepoch')) as month,
-        COUNT(*) as count,
-        SUM(${DbConstants.columnTransactionAmount}) as total_amount
+        SUM(CASE WHEN ${DbConstants.columnTransactionType} = 'income' THEN ${DbConstants.columnTransactionAmount} ELSE 0 END) as income_amount,
+        SUM(CASE WHEN ${DbConstants.columnTransactionType} = 'expense' THEN ${DbConstants.columnTransactionAmount} ELSE 0 END) as expense_amount,
+        COUNT(CASE WHEN ${DbConstants.columnTransactionType} = 'income' THEN 1 END) as income_count,
+        COUNT(CASE WHEN ${DbConstants.columnTransactionType} = 'expense' THEN 1 END) as expense_count
       FROM ${DbConstants.tableTransactions}
       WHERE $whereClause
       GROUP BY month

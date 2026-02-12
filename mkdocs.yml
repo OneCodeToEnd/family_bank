@@ -63,6 +63,11 @@ plugins:
         - zh
         - en
 
+# 排除不需要构建的文档
+exclude_docs: |
+  meta/
+  README.md
+
 nav:
   - 首页: index.md
   - 快速开始:
@@ -70,27 +75,57 @@ nav:
     - 快速上手: getting-started/quickstart.md
   - 功能特性:
     - 账户管理: features/accounts.md
-    - 分类系统: features/categories.md
     - 交易记录: features/transactions.md
-    - 账单导入: features/bill-import.md
+    - 分类系统: features/categories.md
     - AI智能分类: features/ai-classification.md
-    - 数据分析: features/analysis.md
+    - 账单导入: features/bill-import.md
+    - 预算管理: features/budget.md
+    - 交易对手方: features/counterparty.md
     - 备份与同步: features/backup-sync.md
+    - 数据分析: features/analysis.md
   - 架构设计:
+    - 架构概览: architecture/overview.md
     - 技术栈: architecture/tech-stack.md
-    - 数据库设计: architecture/database.md
     - 状态管理: architecture/state-management.md
     - 服务层: architecture/services.md
+    - 数据库设计: architecture/database.md
+    - 模块设计:
+      - 分类模块: architecture/modules/category.md
+      - 交易模块: architecture/modules/transaction.md
+      - 数据库服务: architecture/modules/database-service.md
+  - 设计文档:
+    - 分类匹配设计: design/category-matching.md
+    - 账单导入映射: design/bill-import-mapping.md
+    - 预算分析设计: design/budget_in_analysis_design.md
+    - UI设计:
+      - 图标设计指南: design/ui/icon-design.md
+      - 应用图标设计: design/ui/app-icon-design.md
+  - 实现细节:
+    - 邮件同步: implementation/email-sync.md
+    - HTTP拦截: implementation/http-interception.md
+    - 备份功能:
+      - 备份概览: implementation/backup/overview.md
+      - WebDAV同步: implementation/backup/webdav-sync.md
+      - 自托管方案: implementation/backup/self-hosted.md
+      - 简易备份: implementation/backup/simple-backup.md
+      - 设置优化: implementation/backup/settings-optimization.md
+      - 测试指南: implementation/backup/testing.md
+      - 使用说明: implementation/backup/usage.md
   - 开发指南:
     - 开发环境: development/setup.md
     - 代码规范: development/coding-standards.md
     - 测试指南: development/testing.md
     - 构建发布: development/building.md
+    - 重构指南: development/refactoring.md
+    - 图标生成: development/icon-generation.md
+    - 预算分析实现: development/budget_in_analysis_implementation.md
+    - Widget提取指南: development/widget-extraction-guide.md
   - 参考文档:
-    - 数据库Schema: reference/database-schema.md
     - API文档: reference/api.md
+    - 数据库Schema: reference/database-schema.md
     - 常见问题: reference/faq.md
-  - 更新日志: changelog.md
+    - 更新日志: reference/changelog.md
+    - Bug修复记录: reference/bug-fixes.md
 
 extra:
   social:
