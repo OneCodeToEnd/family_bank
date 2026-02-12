@@ -23,8 +23,10 @@ class AnnualBudgetFormScreen extends StatefulWidget {
 
 class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _scrollController = ScrollController();
   final Map<int, TextEditingController> _amountControllers = {};
   final Map<int, bool> _selectedCategories = {};
+  final Map<int, GlobalKey> _categoryKeys = {}; // 用于定位分类位置
   bool _isSubmitting = false;
 
   @override
@@ -55,8 +57,21 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
 
   /// 滚动到指定分类
   void _scrollToCategory(int categoryId) {
-    // TODO: 如果需要滚动功能，可以使用 ScrollController
-    // 目前只是自动选中，用户可以直接看到并编辑
+    final key = _categoryKeys[categoryId];
+    if (key == null || key.currentContext == null) return;
+
+    try {
+      // 使用 Scrollable.ensureVisible 滚动到指定位置
+      Scrollable.ensureVisible(
+        key.currentContext!,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        alignment: 0.2, // 将目标位置放在屏幕上方 20% 的位置
+      );
+    } catch (e) {
+      // 如果滚动失败，忽略错误
+      debugPrint('滚动到分类失败: $e');
+    }
   }
 
   /// 判断分类是否有子分类
@@ -82,6 +97,7 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     for (var controller in _amountControllers.values) {
       controller.dispose();
     }
@@ -167,6 +183,7 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
     }
 
     return ListView(
+      controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
         // 支出分类树
@@ -243,6 +260,11 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
       _selectedCategories[category.id!] = hasExistingBudget;
     }
 
+    // 为每个分类创建 GlobalKey（用于滚动定位）
+    if (!_categoryKeys.containsKey(category.id)) {
+      _categoryKeys[category.id!] = GlobalKey();
+    }
+
     final controller = _amountControllers[category.id]!;
     final isSelected = _selectedCategories[category.id] ?? false;
 
@@ -267,13 +289,15 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
     // 检查是否有子分类
     final hasChildren = _hasChildren(category, categoryProvider.visibleCategories);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return Container(
+      key: _categoryKeys[category.id],
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // 第一行：复选框、图标、名称
             Row(
               children: [
@@ -386,7 +410,8 @@ class _AnnualBudgetFormScreenState extends State<AnnualBudgetFormScreen> {
           ],
         ),
       ),
-    );
+    ),
+    ); // Card 闭合，然后 Container 闭合
   }
 
   /// 处理提交

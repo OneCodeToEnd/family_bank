@@ -161,7 +161,8 @@ class _CategoryHierarchyStatCardState extends State<CategoryHierarchyStatCard> {
           level: 0,
           totalAmount: totalAmount,
           onUpdate: () {
-            // 不需要触发父组件重建，子组件自己管理状态
+            // 触发父组件重建，重新加载统计数据
+            setState(() {});
           },
         );
       }).toList(),
