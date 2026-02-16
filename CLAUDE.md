@@ -50,8 +50,3 @@
 4. 所有异步操作添加错误处理
 5. UI设计兼容移动端、桌面端
 
-## 参考资源
-
-- 完整文档：`docs/README.md`
-- 架构设计：`docs/architecture/overview.md`
-- 开发指南：`docs/development/setup.md`
