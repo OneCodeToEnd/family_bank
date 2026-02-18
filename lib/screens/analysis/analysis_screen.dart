@@ -832,7 +832,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       setState(() {
         _selectedPeriod = 'custom';
         _customStartDate = picked.start;
-        _customEndDate = picked.end;
+        _customEndDate = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59, 999);
       });
       _loadData();
     }
