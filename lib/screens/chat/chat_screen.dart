@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../models/chat_message.dart';
 import '../../providers/chat_provider.dart';
 import '../settings/ai_settings_screen.dart';
+import 'chat_session_list_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -61,12 +62,32 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('智能问答'),
+        title: Consumer<ChatProvider>(
+          builder: (context, provider, _) {
+            final title = provider.currentSession?.title;
+            return Text(title ?? '智能问答');
+          },
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: '清空对话',
-            onPressed: () => context.read<ChatProvider>().clearChat(),
+            icon: const Icon(Icons.history),
+            tooltip: '会话历史',
+            onPressed: () async {
+              final chatProvider = context.read<ChatProvider>();
+              final sessionId = await Navigator.push<String>(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const ChatSessionListScreen()),
+              );
+              if (sessionId != null && mounted) {
+                chatProvider.switchSession(sessionId);
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_comment),
+            tooltip: '新建对话',
+            onPressed: () => context.read<ChatProvider>().createNewSession(),
           ),
         ],
       ),
@@ -238,6 +259,8 @@ class _ChatScreenState extends State<ChatScreen> {
       BuildContext context, ChatMessage msg, bool isDesktop, double fontSize) {
     final maxWidth = isDesktop ? 0.6 : 0.85;
     final colorScheme = Theme.of(context).colorScheme;
+    final provider = context.read<ChatProvider>();
+    final feedbackType = provider.getFeedbackType(msg.id);
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -251,21 +274,99 @@ class _ChatScreenState extends State<ChatScreen> {
           color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: MarkdownBody(
-          data: msg.content,
-          selectable: true,
-          styleSheet: MarkdownStyleSheet(
-            p: TextStyle(fontSize: fontSize),
-            code: TextStyle(
-              fontSize: fontSize - 1,
-              backgroundColor: colorScheme.surfaceContainerHigh,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MarkdownBody(
+              data: msg.content,
+              selectable: true,
+              styleSheet: MarkdownStyleSheet(
+                p: TextStyle(fontSize: fontSize),
+                code: TextStyle(
+                  fontSize: fontSize - 1,
+                  backgroundColor: colorScheme.surfaceContainerHigh,
+                ),
+                codeblockDecoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
             ),
-            codeblockDecoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(8),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 16,
+                    icon: Icon(
+                      Icons.thumb_up_outlined,
+                      color: feedbackType == 'like'
+                          ? colorScheme.primary
+                          : colorScheme.outline,
+                    ),
+                    onPressed: feedbackType != null
+                        ? null
+                        : () => provider.likeMessage(msg.id),
+                  ),
+                ),
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 16,
+                    icon: Icon(
+                      Icons.thumb_down_outlined,
+                      color: feedbackType == 'dislike'
+                          ? colorScheme.error
+                          : colorScheme.outline,
+                    ),
+                    onPressed: feedbackType != null
+                        ? null
+                        : () => _showDislikeDialog(context, msg.id),
+                  ),
+                ),
+              ],
             ),
-          ),
+          ],
         ),
+      ),
+    );
+  }
+
+  void _showDislikeDialog(BuildContext context, String messageId) {
+    final controller = TextEditingController(text: '回答不满意');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('反馈原因'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: '请输入原因',
+            border: OutlineInputBorder(),
+          ),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context
+                  .read<ChatProvider>()
+                  .dislikeMessage(messageId, controller.text);
+            },
+            child: const Text('提交'),
+          ),
+        ],
       ),
     );
   }
@@ -453,6 +554,8 @@ class _ChatScreenState extends State<ChatScreen> {
         return '查询表结构';
       case 'execute_sql':
         return '执行SQL查询';
+      case 'save_memory':
+        return '保存记忆';
       default:
         return name;
     }

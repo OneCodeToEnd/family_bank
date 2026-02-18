@@ -1,5 +1,7 @@
 import 'dart:convert';
 import '../../database/database_service.dart';
+import '../../database/agent_memory_db_service.dart';
+import '../../../models/agent_memory.dart';
 import '../../../utils/app_logger.dart';
 import 'agent_tool.dart';
 
@@ -9,6 +11,8 @@ const _sensitiveTables = [
   'email_configs',
   'app_settings',
   'http_logs',
+  'agent_memories',
+  'chat_sessions',
 ];
 
 /// SQL 黑名单关键词
@@ -46,36 +50,11 @@ List<AgentTool> createDatabaseTools() {
   final dbService = DatabaseService();
 
   return [
-    _createGetCurrentTimeTool(),
     _createGetTablesTool(dbService),
     _createGetTableSchemaTool(dbService),
     _createExecuteSqlTool(dbService),
+    _createSaveMemoryTool(),
   ];
-}
-
-AgentTool _createGetCurrentTimeTool() {
-  return AgentTool(
-    name: 'get_current_time',
-    description: '获取当前日期时间信息，用于计算"这个月"、"最近三个月"等时间范围',
-    parameters: {
-      'type': 'object',
-      'properties': {},
-      'required': [],
-    },
-    execute: (params) async {
-      final now = DateTime.now();
-      final result = {
-        'current_timestamp': now.millisecondsSinceEpoch,
-        'year': now.year,
-        'month': now.month,
-        'day': now.day,
-        'formatted': '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
-        'month_start_timestamp': DateTime(now.year, now.month, 1).millisecondsSinceEpoch,
-        'month_end_timestamp': DateTime(now.year, now.month + 1, 0, 23, 59, 59, 999).millisecondsSinceEpoch,
-      };
-      return jsonEncode(result);
-    },
-  );
 }
 
 AgentTool _createGetTablesTool(DatabaseService dbService) {
@@ -178,6 +157,44 @@ AgentTool _createExecuteSqlTool(DatabaseService dbService) {
       } catch (e) {
         AppLogger.e('execute_sql failed', error: e);
         return '执行SQL失败: $e';
+      }
+    },
+  );
+}
+
+AgentTool _createSaveMemoryTool() {
+  return AgentTool(
+    name: 'save_memory',
+    description: '保存用户要求记住的信息，当用户说"记住..."、"以后..."、"请注意..."时调用',
+    parameters: {
+      'type': 'object',
+      'properties': {
+        'content': {
+          'type': 'string',
+          'description': '要记住的内容',
+        },
+        'related_query': {
+          'type': 'string',
+          'description': '对用户核心问题的简短概括，不超过30字',
+        },
+      },
+      'required': ['content'],
+    },
+    execute: (params) async {
+      final content = params['content'] as String;
+      if (content.length > 500) return '内容过长，最多500字符';
+      final relatedQuery = params['related_query'] as String?;
+      try {
+        await AgentMemoryDbService().save(AgentMemory(
+          type: 'note',
+          content: content,
+          relatedQuery: relatedQuery,
+          createdAt: DateTime.now(),
+        ));
+        return '已记住';
+      } catch (e) {
+        AppLogger.e('save_memory failed', error: e);
+        return '保存失败: $e';
       }
     },
   );

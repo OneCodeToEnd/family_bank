@@ -354,6 +354,10 @@ http_logs (独立表，记录HTTP调用日志)
 email_configs (独立表，存储邮箱配置)
 
 app_settings (独立表，键值对存储)
+
+agent_memories (独立表，Agent记忆存储)
+
+chat_sessions (独立表，对话会话存储)
 ```
 
 ## 版本历史
@@ -392,4 +396,104 @@ app_settings (独立表，键值对存储)
 - 只读取特定发件人的邮件（支付宝/微信官方）
 - 不修改邮箱内容
 - 临时文件导入后自动清理
+
+### 10. AI模型配置表 (ai_models) - V6.0新增
+管理AI模型配置
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | 主键 |
+| provider | TEXT | NOT NULL | 提供商(deepseek/qwen) |
+| model_name | TEXT | NOT NULL | 模型名称 |
+| api_key | TEXT | NOT NULL | API密钥(AES加密存储) |
+| custom_prompt | TEXT | | 自定义提示词 |
+| is_active | INTEGER | DEFAULT 0 | 是否启用 |
+| created_at | TEXT | NOT NULL | 创建时间 |
+
+### 11. 年度预算表 (annual_budgets) - V7.0新增
+管理年度预算
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | 主键 |
+| family_id | INTEGER | NOT NULL | 家庭组ID |
+| category_id | INTEGER | NOT NULL | 分类ID |
+| year | INTEGER | NOT NULL | 年份 |
+| type | TEXT | | 类型(income/expense) V8.0新增 |
+| annual_amount | REAL | NOT NULL | 年度预算金额 |
+| monthly_amount | REAL | NOT NULL | 月度预算金额 |
+| created_at | TEXT | NOT NULL | 创建时间 |
+| updated_at | TEXT | NOT NULL | 更新时间 |
+
+### 12. 对手方分组表 (counterparty_groups) - V10.0新增
+管理交易对手方分组
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | 主键 |
+| main_counterparty | TEXT | NOT NULL | 主对手方 |
+| sub_counterparty | TEXT | NOT NULL, UNIQUE | 子对手方 |
+| auto_created | INTEGER | DEFAULT 0 | 是否自动创建 |
+| confidence_score | REAL | | 置信度评分 |
+| created_at | TEXT | NOT NULL | 创建时间 |
+| updated_at | TEXT | NOT NULL | 更新时间 |
+
+### 13. Agent记忆表 (agent_memories) - V11.0新增
+存储AI Agent的用户偏好记忆
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| id | INTEGER | PRIMARY KEY AUTOINCREMENT | 主键 |
+| type | TEXT | NOT NULL | 记忆类型(like/dislike/note) |
+| content | TEXT | NOT NULL | 记忆内容 |
+| related_query | TEXT | | 关联的用户提问 |
+| created_at | TEXT | NOT NULL | 创建时间 |
+
+**索引:**
+- `idx_agent_memories_type` ON (type)
+- `idx_agent_memories_created` ON (created_at)
+
+**说明:**
+- like: 用户点赞时提取的正向偏好
+- dislike: 用户点踩时记录的改进方向
+- note: 用户主动要求Agent记住的信息
+- Agent在每次对话时加载最近20条记忆作为上下文
+
+### 14. 对话会话表 (chat_sessions) - V12.0新增
+存储AI问答的对话会话
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| id | TEXT | PRIMARY KEY | UUID标识符 |
+| title | TEXT | NOT NULL | 会话标题(自动生成) |
+| is_pinned | INTEGER | DEFAULT 0 | 是否置顶 |
+| messages | TEXT | | 消息列表(JSON格式) |
+| created_at | TEXT | NOT NULL | 创建时间 |
+| updated_at | TEXT | NOT NULL | 更新时间 |
+
+**索引:**
+- `idx_chat_sessions_pinned` ON (is_pinned)
+- `idx_chat_sessions_updated` ON (updated_at)
+
+**说明:**
+- messages字段存储完整的对话消息列表，JSON格式
+- 每条消息包含角色(user/assistant/toolCall/toolResult)、内容、时间戳
+- 会话按置顶优先、更新时间倒序排列
+- 标题在首次对话后由AI自动生成
+
+### V11.0 (2026-02-17)
+**新增表**: agent_memories
+
+**功能**: AI Agent记忆系统
+- 存储用户反馈和偏好
+- 支持三种记忆类型(like/dislike/note)
+- Agent对话时自动加载最近记忆
+
+### V12.0 (2026-02-17)
+**新增表**: chat_sessions
+
+**功能**: 对话会话管理
+- 多会话支持，消息JSON持久化
+- 会话置顶和自动标题生成
+- 按更新时间排序
 ```

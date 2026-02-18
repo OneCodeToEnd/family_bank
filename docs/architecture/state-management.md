@@ -6,13 +6,14 @@
 
 ### 核心Provider
 
-应用包含5个主要Provider：
+应用包含6个主要Provider：
 
 1. **FamilyProvider** - 家庭组和成员管理
 2. **AccountProvider** - 账户管理
 3. **CategoryProvider** - 分类管理
 4. **TransactionProvider** - 交易记录管理
 5. **SettingsProvider** - 应用设置管理
+6. **ChatProvider** - AI问答对话管理
 
 ### Provider初始化
 
@@ -26,6 +27,7 @@ MultiProvider(
     ChangeNotifierProvider(create: (_) => CategoryProvider()),
     ChangeNotifierProvider(create: (_) => TransactionProvider()),
     ChangeNotifierProvider(create: (_) => SettingsProvider()),
+    ChangeNotifierProvider(create: (_) => ChatProvider()),
   ],
   child: MyApp(),
 )
@@ -112,6 +114,42 @@ class TransactionProvider extends ChangeNotifier {
     await TransactionDbService.insert(transaction);
     await initialize(); // 重新加载数据
   }
+}
+```
+
+---
+
+## ChatProvider
+
+### 职责
+
+管理AI问答的完整生命周期：
+
+- 当前对话消息列表
+- 多会话管理（创建、切换、删除、置顶）
+- AI Agent交互（发送消息、接收流式回复）
+- 用户反馈（点赞/点踩）与记忆保存
+- 会话标题自动生成
+
+### 数据流
+
+```
+用户输入 → ChatProvider.sendMessage()
+    → AIAgentService.chat() → OpenAI API
+    → 工具调用（SQL查询等） → 返回结果
+    → 流式回调更新UI → 保存会话到数据库
+```
+
+### 关键方法
+
+```dart
+class ChatProvider extends ChangeNotifier {
+  Future<void> sendMessage(String text);      // 发送消息
+  Future<void> createNewSession();            // 新建会话
+  Future<void> switchSession(String id);      // 切换会话
+  Future<void> deleteSession(String id);      // 删除会话
+  void likeMessage(String messageId);         // 点赞反馈
+  void dislikeMessage(String id, String reason); // 点踩反馈
 }
 ```
 

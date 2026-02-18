@@ -2,7 +2,7 @@
 class DbConstants {
   // 数据库信息
   static const String dbName = 'family_bank.db';
-  static const int dbVersion = 10;
+  static const int dbVersion = 12;
 
   // 表名
   static const String tableFamilyGroups = 'family_groups';
@@ -17,6 +17,8 @@ class DbConstants {
   static const String tableEmailConfigs = 'email_configs';
   static const String tableAIModels = 'ai_models';
   static const String tableCounterpartyGroups = 'counterparty_groups';
+  static const String tableAgentMemories = 'agent_memories';
+  static const String tableChatSessions = 'chat_sessions';
 
   // 通用字段
   static const String columnId = 'id';
@@ -120,6 +122,16 @@ class DbConstants {
   static const String columnCounterpartyGroupSubCounterparty = 'sub_counterparty';
   static const String columnCounterpartyGroupAutoCreated = 'auto_created';
   static const String columnCounterpartyGroupConfidenceScore = 'confidence_score';
+
+  // agent_memories 表字段
+  static const String columnMemoryType = 'type';
+  static const String columnMemoryContent = 'content';
+  static const String columnMemoryRelatedQuery = 'related_query';
+
+  // chat_sessions 表字段
+  static const String columnSessionTitle = 'title';
+  static const String columnSessionIsPinned = 'is_pinned';
+  static const String columnSessionMessages = 'messages';
 }
 
 /// 账户类型枚举

@@ -14,6 +14,20 @@ class ToolCallInfo {
     required this.arguments,
     this.result,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'arguments': arguments,
+        'result': result,
+      };
+
+  factory ToolCallInfo.fromJson(Map<String, dynamic> json) => ToolCallInfo(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        arguments: json['arguments'] as String,
+        result: json['result'] as String?,
+      );
 }
 
 class ChatMessage {
@@ -48,4 +62,23 @@ class ChatMessage {
       isLoading: isLoading ?? this.isLoading,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'role': role.name,
+        'content': content,
+        'timestamp': timestamp.millisecondsSinceEpoch,
+        'toolCalls': toolCalls?.map((t) => t.toJson()).toList(),
+      };
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
+        id: json['id'] as String,
+        role: ChatRole.values.byName(json['role'] as String),
+        content: json['content'] as String,
+        timestamp:
+            DateTime.fromMillisecondsSinceEpoch(json['timestamp'] as int),
+        toolCalls: (json['toolCalls'] as List<dynamic>?)
+            ?.map((t) => ToolCallInfo.fromJson(t as Map<String, dynamic>))
+            .toList(),
+      );
 }

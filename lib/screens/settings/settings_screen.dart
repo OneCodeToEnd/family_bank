@@ -283,12 +283,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// AI 分类设置
+  /// AI 助手设置
   Widget _buildAISettingsTile() {
     return ListTile(
       leading: const Icon(Icons.smart_toy),
-      title: const Text('AI 分类设置'),
-      subtitle: const Text('配置智能分类功能'),
+      title: const Text('AI 助手设置'),
+      subtitle: const Text('配置智能分类和问答功能'),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
         Navigator.push(

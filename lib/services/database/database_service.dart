@@ -6,7 +6,7 @@ import '../../constants/db_constants.dart';
 import 'preset_category_data.dart';
 import '../../utils/app_logger.dart';
 
-// 注意：数据库版本已更新到 10，添加了对手方分组表
+// 注意：数据库版本已更新到 12，添加了会话管理表
 
 /// 数据库服务类
 /// 负责数据库的初始化、创建、升级和管理
@@ -274,6 +274,31 @@ class DatabaseService {
       )
     ''');
 
+    // 创建 Agent 记忆表 (V11新增)
+    AppLogger.d('[DatabaseService] 创建 agent_memories 表');
+    await db.execute('''
+      CREATE TABLE ${DbConstants.tableAgentMemories} (
+        ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
+        ${DbConstants.columnMemoryType} TEXT NOT NULL,
+        ${DbConstants.columnMemoryContent} TEXT NOT NULL,
+        ${DbConstants.columnMemoryRelatedQuery} TEXT,
+        ${DbConstants.columnCreatedAt} INTEGER NOT NULL
+      )
+    ''');
+
+    // 创建会话管理表 (V12新增)
+    AppLogger.d('[DatabaseService] 创建 chat_sessions 表');
+    await db.execute('''
+      CREATE TABLE ${DbConstants.tableChatSessions} (
+        ${DbConstants.columnId} TEXT PRIMARY KEY,
+        ${DbConstants.columnSessionTitle} TEXT NOT NULL,
+        ${DbConstants.columnSessionIsPinned} INTEGER NOT NULL DEFAULT 0,
+        ${DbConstants.columnSessionMessages} TEXT NOT NULL,
+        ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
+        ${DbConstants.columnUpdatedAt} INTEGER NOT NULL
+      )
+    ''');
+
     // 创建索引
     AppLogger.d('[DatabaseService] 创建数据库索引');
     await _createIndexes(db);
@@ -376,6 +401,22 @@ class DatabaseService {
     );
     await db.execute(
       'CREATE INDEX idx_counterparty_groups_sub ON ${DbConstants.tableCounterpartyGroups}(${DbConstants.columnCounterpartyGroupSubCounterparty})',
+    );
+
+    // Agent 记忆表索引
+    await db.execute(
+      'CREATE INDEX idx_agent_memories_type ON ${DbConstants.tableAgentMemories}(${DbConstants.columnMemoryType})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_agent_memories_created ON ${DbConstants.tableAgentMemories}(${DbConstants.columnCreatedAt})',
+    );
+
+    // 会话管理表索引
+    await db.execute(
+      'CREATE INDEX idx_chat_sessions_pinned ON ${DbConstants.tableChatSessions}(${DbConstants.columnSessionIsPinned})',
+    );
+    await db.execute(
+      'CREATE INDEX idx_chat_sessions_updated ON ${DbConstants.tableChatSessions}(${DbConstants.columnUpdatedAt})',
     );
   }
 
@@ -633,6 +674,61 @@ class DatabaseService {
       ''');
 
       AppLogger.i('[DatabaseService] V10 升级完成');
+    }
+
+    // V11升级：添加 Agent 记忆表
+    if (oldVersion < 11) {
+      AppLogger.i('[DatabaseService] 升级到 V11: 添加 Agent 记忆表');
+
+      await db.execute('''
+        CREATE TABLE ${DbConstants.tableAgentMemories} (
+          ${DbConstants.columnId} INTEGER PRIMARY KEY AUTOINCREMENT,
+          ${DbConstants.columnMemoryType} TEXT NOT NULL,
+          ${DbConstants.columnMemoryContent} TEXT NOT NULL,
+          ${DbConstants.columnMemoryRelatedQuery} TEXT,
+          ${DbConstants.columnCreatedAt} INTEGER NOT NULL
+        )
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_agent_memories_type
+        ON ${DbConstants.tableAgentMemories}(${DbConstants.columnMemoryType})
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_agent_memories_created
+        ON ${DbConstants.tableAgentMemories}(${DbConstants.columnCreatedAt})
+      ''');
+
+      AppLogger.i('[DatabaseService] V11 升级完成');
+    }
+
+    // V12升级：添加会话管理表
+    if (oldVersion < 12) {
+      AppLogger.i('[DatabaseService] 升级到 V12: 添加会话管理表');
+
+      await db.execute('''
+        CREATE TABLE ${DbConstants.tableChatSessions} (
+          ${DbConstants.columnId} TEXT PRIMARY KEY,
+          ${DbConstants.columnSessionTitle} TEXT NOT NULL,
+          ${DbConstants.columnSessionIsPinned} INTEGER NOT NULL DEFAULT 0,
+          ${DbConstants.columnSessionMessages} TEXT NOT NULL,
+          ${DbConstants.columnCreatedAt} INTEGER NOT NULL,
+          ${DbConstants.columnUpdatedAt} INTEGER NOT NULL
+        )
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_chat_sessions_pinned
+        ON ${DbConstants.tableChatSessions}(${DbConstants.columnSessionIsPinned})
+      ''');
+
+      await db.execute('''
+        CREATE INDEX idx_chat_sessions_updated
+        ON ${DbConstants.tableChatSessions}(${DbConstants.columnUpdatedAt})
+      ''');
+
+      AppLogger.i('[DatabaseService] V12 升级完成');
     }
   }
 

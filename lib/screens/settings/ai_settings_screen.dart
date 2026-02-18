@@ -11,6 +11,7 @@ import '../../services/ai_model_config_service.dart';
 import '../../theme/app_colors.dart';
 import 'ai_prompt_edit_screen.dart';
 import 'ai_model_management_screen.dart';
+import 'agent_memory_screen.dart';
 
 /// AI分类设置界面
 class AISettingsScreen extends StatefulWidget {
@@ -105,21 +106,21 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('AI 分类设置')),
+        appBar: AppBar(title: const Text('AI 助手设置')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_config == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('AI 分类设置')),
+        appBar: AppBar(title: const Text('AI 助手设置')),
         body: const Center(child: Text('加载配置失败')),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI 分类设置'),
+        title: const Text('AI 助手设置'),
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
@@ -154,6 +155,8 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
             _buildPromptConfigButton(),
             const SizedBox(height: 16),
             _buildModelManagementButton(),
+            const SizedBox(height: 16),
+            _buildMemoryManagementButton(),
             if (_availableModels != null &&
                 _config!.modelId.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -443,6 +446,18 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       subtitle: const Text('管理自定义 AI 模型配置'),
       trailing: const Icon(Icons.chevron_right),
       onTap: _navigateToModelManagement,
+    );
+  }
+
+  Widget _buildMemoryManagementButton() {
+    return ListTile(
+      title: const Text('智能问答记忆'),
+      subtitle: const Text('查看和管理 AI 助手的记忆'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AgentMemoryScreen()),
+      ),
     );
   }
 

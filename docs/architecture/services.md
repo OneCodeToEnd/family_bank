@@ -42,6 +42,8 @@ class DatabaseService {
 - `AccountDbService` - 账户数据访问
 - `CategoryDbService` - 分类数据访问
 - `TransactionDbService` - 交易数据访问
+- `AgentMemoryDbService` - Agent记忆数据访问
+- `ChatSessionDbService` - 对话会话数据访问
 
 ---
 
@@ -71,6 +73,31 @@ class AiClassifierFactory {
 - `QwenClassifierService` - 通义千问集成
 - `DeepseekClassifierService` - DeepSeek集成
 - `AiConfigService` - AI配置管理
+
+### AI Agent服务
+
+基于ReAct模式的智能问答Agent：
+
+```dart
+abstract class AIAgentService {
+  Future<String> chat(
+    List<ChatMessage> history,
+    String userMessage,
+    OnMessageCallback onMessage,
+  );
+  Future<String> summarizeFeedback(String context, String type);
+  Future<String> generateTitle(String userMessage, String assistantMessage);
+}
+```
+
+- `AIAgentFactory` - Agent工厂，创建并初始化Agent实例
+- `OpenAIAgentService` - 基于OpenAI兼容API的Agent实现
+- `DatabaseTools` - Agent可调用的数据库工具集（获取表列表、查看表结构、执行SQL、保存记忆）
+
+**安全机制**：
+- SQL白名单校验，仅允许SELECT查询
+- 敏感表（ai_models、email_configs等）不可访问
+- 结果限制50行/4000字符
 
 ---
 

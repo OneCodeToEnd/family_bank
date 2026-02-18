@@ -4,7 +4,7 @@
 
 ## 数据库概览
 
-**当前版本**：V10
+**当前版本**：V12
 **文件位置**：应用文档目录/family_bank.db
 **字符编码**：UTF-8
 
@@ -200,6 +200,31 @@
 | value | TEXT | 配置值 |
 | updated_at | TEXT | 更新时间 |
 
+### agent_memories - Agent记忆
+
+存储AI Agent的用户偏好记忆。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER PRIMARY KEY | 主键 |
+| type | TEXT NOT NULL | 记忆类型（like/dislike/note） |
+| content | TEXT NOT NULL | 记忆内容 |
+| related_query | TEXT | 关联的用户提问 |
+| created_at | TEXT | 创建时间 |
+
+### chat_sessions - 对话会话
+
+存储AI问答的对话会话。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | TEXT PRIMARY KEY | UUID标识符 |
+| title | TEXT NOT NULL | 会话标题 |
+| is_pinned | INTEGER DEFAULT 0 | 是否置顶 |
+| messages | TEXT | 消息列表（JSON） |
+| created_at | TEXT | 创建时间 |
+| updated_at | TEXT | 更新时间 |
+
 ---
 
 ## 索引设计
@@ -241,6 +266,14 @@ CREATE INDEX idx_http_log_status ON http_logs(status_code);
 -- 对手方分组索引
 CREATE INDEX idx_counterparty_groups_main ON counterparty_groups(main_counterparty);
 CREATE INDEX idx_counterparty_groups_sub ON counterparty_groups(sub_counterparty);
+
+-- Agent记忆索引
+CREATE INDEX idx_agent_memories_type ON agent_memories(type);
+CREATE INDEX idx_agent_memories_created ON agent_memories(created_at);
+
+-- 对话会话索引
+CREATE INDEX idx_chat_sessions_pinned ON chat_sessions(is_pinned);
+CREATE INDEX idx_chat_sessions_updated ON chat_sessions(updated_at);
 ```
 
 ---
@@ -274,6 +307,8 @@ PRAGMA foreign_keys = ON;
 - **V8**：为annual_budgets表添加type字段
 - **V9**：删除未使用的budgets表
 - **V10**：添加对手方分组表（counterparty_groups）
+- **V11**：添加Agent记忆表（agent_memories）
+- **V12**：添加对话会话表（chat_sessions）
 
 ### 迁移策略
 

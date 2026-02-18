@@ -83,6 +83,7 @@ nav:
     - 交易对手方: features/counterparty.md
     - 备份与同步: features/backup-sync.md
     - 数据分析: features/analysis.md
+    - AI智能问答: features/ai-agent.md
   - 架构设计:
     - 架构概览: architecture/overview.md
     - 技术栈: architecture/tech-stack.md
