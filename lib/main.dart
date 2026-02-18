@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'providers/family_provider.dart';
 import 'providers/account_provider.dart';
@@ -47,6 +48,15 @@ class FamilyBankApp extends StatelessWidget {
           return MaterialApp(
             title: '账清',
             debugShowCheckedModeBanner: false,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('zh', 'CN'),
+            ],
+            locale: const Locale('zh', 'CN'),
             themeMode: settingsProvider.themeMode,
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
