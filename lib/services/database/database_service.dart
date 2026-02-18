@@ -1,10 +1,12 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 import '../../constants/db_constants.dart';
 import 'preset_category_data.dart';
 import '../../utils/app_logger.dart';
+import 'logging_database.dart';
 
 // 注意：数据库版本已更新到 12，添加了会话管理表
 
@@ -45,7 +47,7 @@ class DatabaseService {
     );
 
     AppLogger.i('[DatabaseService] 数据库初始化完成');
-    return db;
+    return kDebugMode ? LoggingDatabase(db) : db;
   }
 
   /// 创建数据库表
