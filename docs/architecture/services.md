@@ -93,6 +93,7 @@ abstract class AIAgentService {
 - `AIAgentFactory` - Agent工厂，创建并初始化Agent实例
 - `OpenAIAgentService` - 基于OpenAI兼容API的Agent实现
 - `DatabaseTools` - Agent可调用的数据库工具集（获取表列表、查看表结构、执行SQL、保存记忆）
+- `QuickQuestionService` - 快捷提问管理，存储在app_settings表中
 
 **安全机制**：
 - SQL白名单校验，仅允许SELECT查询
@@ -214,6 +215,20 @@ class LoggingHttpClient extends BaseClient {
   }
 }
 ```
+
+### LoggingDatabase
+
+数据库SQL日志包装器（仅debug模式启用）：
+
+```dart
+class LoggingDatabase implements Database {
+  final Database _delegate;
+  // 代理所有数据库操作，打印SQL语句、参数、耗时和结果行数
+  // 日志格式: [SQL] QUERY transactions WHERE id = ? args=[1] -> 3 rows [2ms]
+}
+```
+
+配套 `LoggingBatch` 包装批量操作，在 commit 时打印操作数和耗时。
 
 ---
 
