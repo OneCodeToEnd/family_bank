@@ -3,6 +3,7 @@ import '../models/agent_memory.dart';
 import '../models/chat_message.dart';
 import '../models/chat_session.dart';
 import '../services/ai/agent/ai_agent_service.dart';
+import '../services/ai/quick_question_service.dart';
 import '../services/database/agent_memory_db_service.dart';
 import '../services/database/chat_session_db_service.dart';
 import '../utils/app_logger.dart';
@@ -13,6 +14,7 @@ class ChatProvider with ChangeNotifier {
   final Map<String, String> _feedbackTypes = {};
   final AgentMemoryDbService _memoryDbService = AgentMemoryDbService();
   final ChatSessionDbService _sessionDbService = ChatSessionDbService();
+  final QuickQuestionService _quickQuestionService = QuickQuestionService();
   bool _isLoading = false;
   bool _isInitialized = false;
   String? _errorMessage;
@@ -20,6 +22,7 @@ class ChatProvider with ChangeNotifier {
 
   List<ChatSession> _sessions = [];
   String? _currentSessionId;
+  List<String> _quickQuestions = [];
 
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   bool get isLoading => _isLoading;
@@ -27,6 +30,7 @@ class ChatProvider with ChangeNotifier {
   String? get errorMessage => _errorMessage;
   List<ChatSession> get sessions => List.unmodifiable(_sessions);
   String? get currentSessionId => _currentSessionId;
+  List<String> get quickQuestions => List.unmodifiable(_quickQuestions);
   ChatSession? get currentSession =>
       _currentSessionId == null
           ? null
@@ -44,6 +48,7 @@ class ChatProvider with ChangeNotifier {
       _isInitialized = true;
       _errorMessage = null;
       await loadSessions();
+      await _loadQuickQuestions();
     } catch (e) {
       AppLogger.e('ChatProvider initialize failed', error: e);
       _errorMessage = '初始化失败: $e';
@@ -64,6 +69,21 @@ class ChatProvider with ChangeNotifier {
     } catch (e) {
       AppLogger.e('loadSessions failed', error: e);
     }
+  }
+
+  /// 加载常见问题
+  Future<void> _loadQuickQuestions() async {
+    try {
+      _quickQuestions = await _quickQuestionService.getQuestions();
+    } catch (e) {
+      AppLogger.e('loadQuickQuestions failed', error: e);
+    }
+  }
+
+  /// 重新加载常见问题（供设置页返回时调用）
+  Future<void> reloadQuickQuestions() async {
+    await _loadQuickQuestions();
+    notifyListeners();
   }
 
   /// 创建新会话

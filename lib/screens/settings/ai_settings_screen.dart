@@ -12,6 +12,7 @@ import '../../theme/app_colors.dart';
 import 'ai_prompt_edit_screen.dart';
 import 'ai_model_management_screen.dart';
 import 'agent_memory_screen.dart';
+import 'quick_question_screen.dart';
 
 /// AI分类设置界面
 class AISettingsScreen extends StatefulWidget {
@@ -157,6 +158,8 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
             _buildModelManagementButton(),
             const SizedBox(height: 16),
             _buildMemoryManagementButton(),
+            const SizedBox(height: 16),
+            _buildQuickQuestionButton(),
             if (_availableModels != null &&
                 _config!.modelId.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -457,6 +460,18 @@ class _AISettingsScreenState extends State<AISettingsScreen> {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const AgentMemoryScreen()),
+      ),
+    );
+  }
+
+  Widget _buildQuickQuestionButton() {
+    return ListTile(
+      title: const Text('常见问题'),
+      subtitle: const Text('管理智能问答的快捷问题'),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const QuickQuestionScreen()),
       ),
     );
   }

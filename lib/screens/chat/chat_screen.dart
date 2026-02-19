@@ -187,24 +187,49 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildEmptyHint(BuildContext context) {
+    final provider = context.read<ChatProvider>();
+    final questions = provider.quickQuestions;
+
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.chat_bubble_outline,
-              size: 48, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 12),
-          Text('试试问我关于收支的问题',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  )),
-          const SizedBox(height: 8),
-          Text('"这个月花了多少钱？"',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                    fontStyle: FontStyle.italic,
-                  )),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.chat_bubble_outline,
+                size: 48, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 12),
+            Text('试试问我关于收支的问题',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    )),
+            const SizedBox(height: 8),
+            Text('"这个月花了多少钱？"',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                      fontStyle: FontStyle.italic,
+                    )),
+            if (questions.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: questions.map((q) {
+                    return ActionChip(
+                      label: Text(q),
+                      onPressed: () {
+                        _controller.text = q;
+                        _sendMessage();
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
