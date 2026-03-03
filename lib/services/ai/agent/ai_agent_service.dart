@@ -22,6 +22,7 @@ abstract class AIAgentService {
     required List<ChatMessage> history,
     required String userMessage,
     required OnMessageCallback onMessage,
+    bool Function()? isCancelled,
   });
 
   /// 总结用户反馈为可存储的记忆

@@ -112,6 +112,7 @@ class OpenAIAgentService implements AIAgentService {
     required List<ChatMessage> history,
     required String userMessage,
     required OnMessageCallback onMessage,
+    bool Function()? isCancelled,
   }) async {
     // 构建消息历史
     final messages = <Map<String, dynamic>>[
@@ -132,6 +133,11 @@ class OpenAIAgentService implements AIAgentService {
 
     // ReAct 循环
     for (var i = 0; i < _maxIterations; i++) {
+      // 检查是否被取消
+      if (isCancelled?.call() ?? false) {
+        return;
+      }
+
       final response = await _callApi(messages);
       if (response == null) {
         onMessage(ChatMessage(
@@ -141,13 +147,18 @@ class OpenAIAgentService implements AIAgentService {
         return;
       }
 
+      // 再次检查是否被取消
+      if (isCancelled?.call() ?? false) {
+        return;
+      }
+
       final choice = response['choices'][0];
       final message = choice['message'];
       final toolCalls = message['tool_calls'] as List<dynamic>?;
 
       if (toolCalls != null && toolCalls.isNotEmpty) {
         // 有工具调用
-        await _handleToolCalls(messages, toolCalls, onMessage);
+        await _handleToolCalls(messages, toolCalls, onMessage, isCancelled);
       } else {
         // 最终回复
         final content = message['content'] as String? ?? '';
@@ -205,6 +216,7 @@ class OpenAIAgentService implements AIAgentService {
     List<Map<String, dynamic>> messages,
     List<dynamic> toolCalls,
     OnMessageCallback onMessage,
+    bool Function()? isCancelled,
   ) async {
     // 将 assistant 的 tool_calls 消息加入历史
     messages.add({
@@ -216,6 +228,11 @@ class OpenAIAgentService implements AIAgentService {
     final toolCallInfos = <ToolCallInfo>[];
 
     for (final tc in toolCalls) {
+      // 检查是否被取消
+      if (isCancelled?.call() ?? false) {
+        return;
+      }
+
       final id = tc['id'] as String;
       final function = tc['function'];
       final name = function['name'] as String;

@@ -19,6 +19,7 @@ class ChatProvider with ChangeNotifier {
   bool _isInitialized = false;
   String? _errorMessage;
   AIAgentService? _agent;
+  bool _isCancelled = false;
 
   List<ChatSession> _sessions = [];
   String? _currentSessionId;
@@ -199,6 +200,7 @@ class ChatProvider with ChangeNotifier {
 
     _messages.add(ChatMessage(role: ChatRole.user, content: text));
     _isLoading = true;
+    _isCancelled = false;
     _errorMessage = null;
     notifyListeners();
 
@@ -218,19 +220,33 @@ class ChatProvider with ChangeNotifier {
             .toList(),
         userMessage: text,
         onMessage: (msg) {
+          if (_isCancelled) return;
           _messages.removeWhere((m) => m.isLoading);
           _messages.add(msg);
           notifyListeners();
         },
+        isCancelled: () => _isCancelled,
       );
 
       _messages.removeWhere((m) => m.isLoading);
+
+      // 如果被取消，添加提示消息
+      if (_isCancelled) {
+        final lastMsg = _messages.isNotEmpty ? _messages.last : null;
+        if (lastMsg != null && lastMsg.role == ChatRole.assistant && lastMsg.content.isEmpty) {
+          _messages.removeLast();
+        }
+        _messages.add(ChatMessage(
+          role: ChatRole.assistant,
+          content: '已停止回答',
+        ));
+      }
 
       // 保存会话
       await _saveCurrentSession();
 
       // 首次对话完成后异步生成标题
-      if (isFirstRound) {
+      if (isFirstRound && !_isCancelled) {
         _generateSessionTitle();
       }
     } catch (e) {
@@ -240,7 +256,16 @@ class ChatProvider with ChangeNotifier {
     }
 
     _isLoading = false;
+    _isCancelled = false;
     notifyListeners();
+  }
+
+  /// 停止当前回答
+  void stopAnswer() {
+    if (_isLoading) {
+      _isCancelled = true;
+      notifyListeners();
+    }
   }
 
   Future<void> likeMessage(String messageId) async {
